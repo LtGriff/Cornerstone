@@ -178,6 +178,15 @@
       letter-spacing: .04em;
       vertical-align: .12em;
     }
+
+    .source-note {
+      margin: 10px 2px 0;
+      color: #85848a;
+      font-size: .76rem;
+      line-height: 1.4;
+    }
+
+    .source-note a { color: #bbb9c0; text-underline-offset: 3px; }
     .segmented button:focus-visible, .action:focus-visible, .icon-button:focus-visible { outline: 3px solid #8b7cff; outline-offset: 2px; }
 
     .subrow {
@@ -311,6 +320,15 @@
       transform: scale(1.08);
     }
 
+    .screen.album-bleed::before {
+      background-image: var(--album-bleed);
+      background-size: 58% 58%;
+      background-position: left top, right top, right bottom, left bottom;
+      background-repeat: no-repeat;
+      filter: blur(38px) saturate(1.3);
+      opacity: .95;
+    }
+
     .screen::after {
       inset: 0;
       background: var(--glass-tint, rgba(247,249,255,.38));
@@ -355,6 +373,13 @@
     }
 
     .face.back { transform: rotateY(180deg); background: var(--next-color); }
+
+    .face img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
     .screen-label {
       position: absolute;
@@ -403,7 +428,7 @@
     <section class="controls" aria-labelledby="page-title">
       <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Tilewall</div>
       <h1 id="page-title">Build your screen.</h1>
-      <p class="intro">Shape the wall with colors or gradients. Album covers will join them next.</p>
+      <p class="intro">Shape the wall with colors, gradients, or today’s chart covers.</p>
 
       <section class="question" aria-labelledby="fill-title">
         <div class="question-head">
@@ -413,8 +438,9 @@
         <div class="segmented" id="fillChoices" aria-label="Tile fill">
           <button type="button" data-mode="colors" aria-pressed="true">Colors</button>
           <button type="button" data-mode="gradients" aria-pressed="false">Gradients</button>
-          <button type="button" disabled aria-disabled="true">Albums <span class="soon">NEXT</span></button>
+          <button type="button" data-mode="albums" aria-pressed="false">Albums <span class="soon">TOP 60</span></button>
         </div>
+        <p class="source-note" id="fillNote" hidden>Randomized from an October 9 <a href="https://music.apple.com/us/playlist/top-100-usa/pl.606afcbb70264d2eb2b51d8dbcfa6a12" target="_blank" rel="noreferrer">Apple Music Top 100: USA</a> snapshot.</p>
       </section>
 
       <section class="question" aria-labelledby="count-title">
@@ -423,7 +449,7 @@
           <span class="step">02</span>
         </div>
         <div class="count-output"><strong id="countValue">12</strong><span>tiles</span></div>
-        <input id="count" type="range" min="2" max="60" value="12" aria-label="Number of color tiles">
+        <input id="count" type="range" min="2" max="60" value="12" aria-label="Number of tiles">
         <div class="range-labels"><span>2</span><span>60</span></div>
       </section>
 
@@ -482,6 +508,7 @@
     </section>
   </main>
 
+  <script src="top-songs.js"></script>
   <script>
     (() => {
       const palette = [
@@ -500,7 +527,8 @@
         motion: true,
         speed: 2,
         phone: false,
-        colors: []
+        colors: [],
+        albums: [...(window.TOP_SONGS || [])].sort(() => Math.random() - .5)
       };
 
       let flipTimer = null;
@@ -540,16 +568,29 @@
         return tile;
       }
 
+      function makeAlbumTile(album, index) {
+        const tile = document.createElement('div');
+        const next = state.albums[(index + 7) % state.albums.length] || album;
+        tile.className = 'tile';
+        tile.dataset.index = index;
+        tile.innerHTML = `<div class="tile-inner"><div class="face front"><img src="${album.art}" alt="${album.title} by ${album.artist}"></div><div class="face back"><img src="${next.art}" alt="${next.title} by ${next.artist}"></div></div>`;
+        return tile;
+      }
+
       function renderGrid() {
         const grid = $('grid');
         const shape = gridShape(state.count);
         grid.style.setProperty('--columns', shape.columns);
         grid.style.setProperty('--rows', shape.rows);
-        state.colors = state.colors.slice(0, state.count);
-        while (state.colors.length < state.count) {
-          state.colors.push(palette[Math.floor(Math.random() * palette.length)]);
+        if (state.mode === 'albums' && state.albums.length) {
+          grid.replaceChildren(...state.albums.slice(0, state.count).map(makeAlbumTile));
+        } else {
+          state.colors = state.colors.slice(0, state.count);
+          while (state.colors.length < state.count) {
+            state.colors.push(palette[Math.floor(Math.random() * palette.length)]);
+          }
+          grid.replaceChildren(...state.colors.map(makeTile));
         }
-        grid.replaceChildren(...state.colors.map(makeTile));
         updateFrame();
         updateLabel();
         restartMotion();
@@ -561,8 +602,14 @@
         const width = state.frame === 'none' ? 0 : state.frameInches * previewScale;
         screen.style.setProperty('--frame-size', `${width}px`);
         screen.style.setProperty('--glass-tint', state.frame === 'smoke' ? 'rgba(8,10,15,.58)' : 'rgba(248,250,255,.38)');
-        const bleed = state.colors.length ? state.colors : palette;
-        ['a', 'b', 'c', 'd'].forEach((key, index) => screen.style.setProperty(`--bleed-${key}`, bleed[(index * Math.max(1, Math.floor(bleed.length / 4))) % bleed.length]));
+        screen.classList.toggle('album-bleed', state.mode === 'albums' && state.albums.length > 0);
+        if (state.mode === 'albums' && state.albums.length) {
+          const sample = [0, .25, .5, .75].map((point) => state.albums[Math.floor(point * (state.albums.length - 1))]);
+          screen.style.setProperty('--album-bleed', sample.map((album) => `url("${album.art}")`).join(','));
+        } else {
+          const bleed = state.colors.length ? state.colors : palette;
+          ['a', 'b', 'c', 'd'].forEach((key, index) => screen.style.setProperty(`--bleed-${key}`, bleed[(index * Math.max(1, Math.floor(bleed.length / 4))) % bleed.length]));
+        }
         $('frameSize').disabled = state.frame === 'none';
         $('frameValue').textContent = state.frame === 'none' ? 'off' : `${state.frameInches.toFixed(2).replace(/\.00$/, '.0')} ${state.frameInches === 1 ? 'inch' : 'inches'}`;
         updateLabel();
@@ -570,7 +617,10 @@
 
       function updateLabel() {
         const frameName = state.frame === 'frost' ? 'frost glass' : state.frame === 'smoke' ? 'smoke glass' : 'no frame';
-        $('screenLabel').textContent = `${state.count} ${state.mode} · ${frameName} · ${state.motion ? 'gentle motion' : 'still'}`;
+        const material = state.mode === 'albums' ? 'chart covers' : state.mode;
+        $('screenLabel').textContent = `${state.count} ${material} · ${frameName} · ${state.motion ? 'gentle motion' : 'still'}`;
+        $('shuffle').textContent = state.mode === 'albums' ? 'Shuffle albums' : state.mode === 'gradients' ? 'Shuffle gradients' : 'Shuffle colors';
+        $('fillNote').hidden = state.mode !== 'albums';
       }
 
       function flipOne() {
@@ -578,12 +628,27 @@
         if (!tiles.length || !state.motion) return;
         const tile = tiles[Math.floor(Math.random() * tiles.length)];
         const back = tile.querySelector('.back');
-        const newColor = palette[Math.floor(Math.random() * palette.length)];
         const index = Number(tile.dataset.index);
-        back.style.setProperty('--next-color', tilePaint(newColor, index, 3));
+        let nextAlbum;
+        let newColor;
+        if (state.mode === 'albums') {
+          nextAlbum = state.albums[Math.floor(Math.random() * state.albums.length)];
+          const image = back.querySelector('img');
+          image.src = nextAlbum.art;
+          image.alt = `${nextAlbum.title} by ${nextAlbum.artist}`;
+        } else {
+          newColor = palette[Math.floor(Math.random() * palette.length)];
+          back.style.setProperty('--next-color', tilePaint(newColor, index, 3));
+        }
         tile.classList.add('is-flipping');
         window.setTimeout(() => {
-          tile.querySelector('.front').style.setProperty('--color', tilePaint(newColor, index));
+          if (state.mode === 'albums' && nextAlbum) {
+            const image = tile.querySelector('.front img');
+            image.src = nextAlbum.art;
+            image.alt = `${nextAlbum.title} by ${nextAlbum.artist}`;
+          } else {
+            tile.querySelector('.front').style.setProperty('--color', tilePaint(newColor, index));
+          }
           tile.classList.remove('is-flipping');
         }, 1300);
       }
@@ -599,6 +664,11 @@
         const button = event.target.closest('button[data-mode]');
         if (!button) return;
         state.mode = button.dataset.mode;
+        if (state.mode === 'albums') {
+          state.count = 60;
+          $('count').value = 60;
+          $('countValue').textContent = 60;
+        }
         document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice === button)));
         renderGrid();
         updateFrame();
@@ -640,7 +710,8 @@
       });
 
       $('shuffle').addEventListener('click', () => {
-        state.colors = shuffledColors(state.count);
+        if (state.mode === 'albums') state.albums.sort(() => Math.random() - .5);
+        else state.colors = shuffledColors(state.count);
         renderGrid();
       });
 
@@ -675,8 +746,13 @@
           $('countValue').textContent = count;
         }
         if (input.mode !== undefined) {
-          if (!['colors', 'gradients'].includes(input.mode)) throw new Error('Mode must be colors or gradients.');
+          if (!['colors', 'gradients', 'albums'].includes(input.mode)) throw new Error('Mode must be colors, gradients, or albums.');
           state.mode = input.mode;
+          if (state.mode === 'albums' && input.count === undefined) {
+            state.count = 60;
+            $('count').value = 60;
+            $('countValue').textContent = 60;
+          }
           document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === state.mode)));
         }
         if (input.frame !== undefined) {
@@ -701,12 +777,12 @@
           void Promise.resolve(context.registerTool({
             name: 'configure_tilewall',
             title: 'Configure tile wall',
-            description: 'Change the visible tile count, color or gradient fill, glass frame style, and gentle flip motion in the Tilewall preview.',
+            description: 'Change the visible tile count, color, gradient, or album fill, glass frame style, and gentle flip motion in the Tilewall preview.',
             inputSchema: {
               type: 'object',
               properties: {
                 count: { type: 'integer', minimum: 2, maximum: 60 },
-                mode: { type: 'string', enum: ['colors', 'gradients'] },
+                mode: { type: 'string', enum: ['colors', 'gradients', 'albums'] },
                 frame: { type: 'string', enum: ['none', 'frost', 'smoke'] },
                 motion: { type: 'boolean' }
               },
