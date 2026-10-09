@@ -653,7 +653,8 @@
       <div class="actions">
         <button class="action" id="shuffle" type="button">Shuffle colors</button>
         <button class="action primary" id="fullscreen" type="button">View full screen</button>
-        <button class="action" id="savePhone" type="button" style="grid-column:1 / -1">Save phone wallpaper</button>
+        <button class="action" id="savePhone" type="button">Save phone wallpaper</button>
+        <button class="action" id="saveDesktop" type="button">Save desktop wallpaper</button>
       </div>
     </section>
 
@@ -720,7 +721,7 @@
         <button class="dialog-close" id="closeSpotifyDialog" type="button" aria-label="Close">×</button>
       </div>
       <form class="spotify-form" id="spotifyForm">
-        <label>Spotify Client ID
+        <label id="spotifyClientIdField">Spotify Client ID
           <input id="spotifyClientId" type="text" autocomplete="off" placeholder="Paste your Client ID" required>
         </label>
         <label>Listening period
@@ -749,6 +750,7 @@
       ];
 
       const $ = (id) => document.getElementById(id);
+      const SPOTIFY_CLIENT_ID = '3373b0d8342c4805b6662861c8f47427';
       const query = new URLSearchParams(window.location.search);
       const wallpaperMode = query.has('wallpaper');
       const initialMode = query.get('mode') === 'albums' ? 'albums' : 'colors';
@@ -1340,7 +1342,8 @@
       }
 
       $('connectSpotify').addEventListener('click', () => {
-        $('spotifyClientId').value = localStorage.getItem('cornerstone-spotify-client-id') || '';
+        $('spotifyClientId').value = SPOTIFY_CLIENT_ID || localStorage.getItem('cornerstone-spotify-client-id') || '';
+        $('spotifyClientIdField').hidden = Boolean(SPOTIFY_CLIENT_ID);
         $('spotifyRedirect').textContent = spotifyRedirectUri();
         $('spotifyDialog').showModal();
       });
@@ -1349,7 +1352,7 @@
 
       $('spotifyForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const clientId = $('spotifyClientId').value.trim();
+        const clientId = SPOTIFY_CLIENT_ID || $('spotifyClientId').value.trim();
         if (!clientId) return;
         const verifier = base64Url(crypto.getRandomValues(new Uint8Array(64)));
         const authState = base64Url(crypto.getRandomValues(new Uint8Array(18)));
@@ -1462,13 +1465,11 @@
         context.drawImage(image, sx, sy, sw, sh, x, y, width, height);
       }
 
-      $('savePhone').addEventListener('click', async () => {
-        const button = $('savePhone');
+      async function saveWallpaper(button, width, height, label) {
         const original = button.textContent;
         button.disabled = true;
         button.textContent = 'Building wallpaper…';
         try {
-          const width = 1290, height = 2796;
           const frame = state.frame === 'none' ? 0 : Math.round(width * state.frameInches * .035);
           const innerWidth = width - frame * 2, innerHeight = height - frame * 2;
           const available = state.mode === 'albums' ? state.albums.length : 60;
@@ -1493,7 +1494,7 @@
           if (!blob) throw new Error('Wallpaper could not be created');
           const link = document.createElement('a');
           link.href = URL.createObjectURL(blob);
-          link.download = `cornerstone-phone-${Date.now()}.png`;
+          link.download = `cornerstone-${label}-${Date.now()}.png`;
           link.click();
           window.setTimeout(() => URL.revokeObjectURL(link.href), 1500);
         } catch (_) {
@@ -1502,7 +1503,10 @@
           button.disabled = false;
           button.textContent = original;
         }
-      });
+      }
+
+      $('savePhone').addEventListener('click', () => saveWallpaper($('savePhone'), 1290, 2796, 'phone'));
+      $('saveDesktop').addEventListener('click', () => saveWallpaper($('saveDesktop'), 3840, 2160, 'desktop'));
 
       $('applyAlbums').addEventListener('click', () => {
         if (draftAlbums.length < 4) return;
