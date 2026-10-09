@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b0b0d">
-  <meta name="description" content="Design a colorful tile wall and test the layout, frame, and flip motion before adding album artwork.">
+  <meta name="description" content="Design a colorful tile wall with colors, gradients, glass frames, and gentle flip motion.">
   <title>Tilewall</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0b0d'/%3E%3Cpath d='M5 5h10v10H5zm12 0h10v10H17zM5 17h10v10H5z' fill='%23fb4b68'/%3E%3Cpath d='M17 17h10v10H17z' fill='%235fe0c1'/%3E%3C/svg%3E">
   <style>
@@ -169,6 +169,15 @@
 
     .segmented button:hover { background: #232328; }
     .segmented button[aria-pressed="true"] { background: #f5f2ea; color: #101012; }
+    .segmented button:disabled { color: #66656a; cursor: not-allowed; }
+    .segmented button:disabled:hover { background: transparent; }
+    .soon {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: .64rem;
+      letter-spacing: .04em;
+      vertical-align: .12em;
+    }
     .segmented button:focus-visible, .action:focus-visible, .icon-button:focus-visible { outline: 3px solid #8b7cff; outline-offset: 2px; }
 
     .subrow {
@@ -271,16 +280,46 @@
 
     .screen {
       position: relative;
+      isolation: isolate;
       width: 100%;
       height: 100%;
       padding: var(--frame-size, 0px);
       border-radius: 17px;
       overflow: hidden;
-      background: var(--frame);
+      background: #15151a;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.16);
       transition: padding .25s ease, background .25s ease;
     }
 
+    .screen::before,
+    .screen::after {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .screen::before {
+      inset: -22%;
+      background:
+        radial-gradient(circle at 8% 18%, var(--bleed-a, #ff5d78), transparent 34%),
+        radial-gradient(circle at 88% 12%, var(--bleed-b, #47d6ca), transparent 35%),
+        radial-gradient(circle at 82% 88%, var(--bleed-c, #6d7cff), transparent 38%),
+        radial-gradient(circle at 12% 86%, var(--bleed-d, #ffd84d), transparent 36%);
+      filter: blur(34px) saturate(1.18);
+      opacity: .88;
+      transform: scale(1.08);
+    }
+
+    .screen::after {
+      inset: 0;
+      background: var(--glass-tint, rgba(247,249,255,.38));
+      backdrop-filter: blur(22px) saturate(1.25);
+    }
+
     .grid {
+      position: relative;
+      z-index: 1;
       width: 100%;
       height: 100%;
       display: grid;
@@ -303,7 +342,7 @@
       position: absolute;
       inset: 0;
       transform-style: preserve-3d;
-      transition: transform .72s cubic-bezier(.65,.05,.2,1);
+      transition: transform 1.28s cubic-bezier(.62,.02,.22,1);
     }
 
     .tile.is-flipping .tile-inner { transform: rotateY(180deg); }
@@ -364,14 +403,26 @@
     <section class="controls" aria-labelledby="page-title">
       <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Tilewall</div>
       <h1 id="page-title">Build your screen.</h1>
-      <p class="intro">Test the shape of the experience with color. Album covers can replace these tiles later.</p>
+      <p class="intro">Shape the wall with colors or gradients. Album covers will join them next.</p>
+
+      <section class="question" aria-labelledby="fill-title">
+        <div class="question-head">
+          <h2 id="fill-title">What should fill the tiles?</h2>
+          <span class="step">01</span>
+        </div>
+        <div class="segmented" id="fillChoices" aria-label="Tile fill">
+          <button type="button" data-mode="colors" aria-pressed="true">Colors</button>
+          <button type="button" data-mode="gradients" aria-pressed="false">Gradients</button>
+          <button type="button" disabled aria-disabled="true">Albums <span class="soon">NEXT</span></button>
+        </div>
+      </section>
 
       <section class="question" aria-labelledby="count-title">
         <div class="question-head">
           <h2 id="count-title">How many tiles do you want?</h2>
-          <span class="step">01</span>
+          <span class="step">02</span>
         </div>
-        <div class="count-output"><strong id="countValue">12</strong><span>colors</span></div>
+        <div class="count-output"><strong id="countValue">12</strong><span>tiles</span></div>
         <input id="count" type="range" min="2" max="60" value="12" aria-label="Number of color tiles">
         <div class="range-labels"><span>2</span><span>60</span></div>
       </section>
@@ -379,12 +430,12 @@
       <section class="question" aria-labelledby="frame-title">
         <div class="question-head">
           <h2 id="frame-title">Do you want a frame?</h2>
-          <span class="step">02</span>
+          <span class="step">03</span>
         </div>
-        <div class="segmented" id="frameChoices" aria-label="Frame color">
+        <div class="segmented" id="frameChoices" aria-label="Frame style">
           <button type="button" data-frame="none" aria-pressed="false">None</button>
-          <button type="button" data-frame="light" aria-pressed="true">Day</button>
-          <button type="button" data-frame="dark" aria-pressed="false">Night</button>
+          <button type="button" data-frame="frost" aria-pressed="true">Frost</button>
+          <button type="button" data-frame="smoke" aria-pressed="false">Smoke</button>
         </div>
         <div class="subrow">
           <label for="frameSize">Frame width <span id="frameValue">1.0 inch</span></label>
@@ -395,14 +446,14 @@
       <section class="question" aria-labelledby="motion-title">
         <div class="question-head">
           <h2 id="motion-title">Should tiles randomly flip?</h2>
-          <span class="step">03</span>
+          <span class="step">04</span>
         </div>
         <div class="subrow" style="margin-top:0">
           <label id="motionStatus">Motion is on</label>
           <button class="switch" id="motionToggle" type="button" role="switch" aria-checked="true" aria-labelledby="motion-title motionStatus"></button>
         </div>
         <div class="subrow" id="speedRow">
-          <label for="speed">Flip pace <span id="speedValue">Relaxed</span></label>
+          <label for="speed">Flip pace <span id="speedValue">Calm</span></label>
           <input id="speed" type="range" min="1" max="3" value="2" step="1" aria-label="Flip pace" style="width: 110px">
         </div>
       </section>
@@ -443,7 +494,8 @@
       const $ = (id) => document.getElementById(id);
       const state = {
         count: 12,
-        frame: 'light',
+        mode: 'colors',
+        frame: 'frost',
         frameInches: 1,
         motion: true,
         speed: 2,
@@ -471,12 +523,20 @@
         return best;
       }
 
+      function tilePaint(color, index, offset = 0) {
+        if (state.mode === 'colors') return color;
+        const first = palette.indexOf(color);
+        const second = palette[(Math.max(0, first) + 5 + index + offset) % palette.length];
+        const angle = (35 + index * 29 + offset * 17) % 180;
+        return `linear-gradient(${angle}deg, ${color}, ${second})`;
+      }
+
       function makeTile(color, index) {
         const tile = document.createElement('div');
         tile.className = 'tile';
         tile.dataset.index = index;
         const next = palette[(palette.indexOf(color) + 7 + index) % palette.length];
-        tile.innerHTML = `<div class="tile-inner"><div class="face front" style="--color:${color}"></div><div class="face back" style="--next-color:${next}"></div></div>`;
+        tile.innerHTML = `<div class="tile-inner"><div class="face front" style="--color:${tilePaint(color, index)}"></div><div class="face back" style="--next-color:${tilePaint(next, index, 2)}"></div></div>`;
         return tile;
       }
 
@@ -490,6 +550,7 @@
           state.colors.push(palette[Math.floor(Math.random() * palette.length)]);
         }
         grid.replaceChildren(...state.colors.map(makeTile));
+        updateFrame();
         updateLabel();
         restartMotion();
       }
@@ -499,15 +560,17 @@
         const previewScale = state.phone ? 18 : 24;
         const width = state.frame === 'none' ? 0 : state.frameInches * previewScale;
         screen.style.setProperty('--frame-size', `${width}px`);
-        screen.style.setProperty('--frame', state.frame === 'dark' ? '#09090b' : '#f3f0e8');
+        screen.style.setProperty('--glass-tint', state.frame === 'smoke' ? 'rgba(8,10,15,.58)' : 'rgba(248,250,255,.38)');
+        const bleed = state.colors.length ? state.colors : palette;
+        ['a', 'b', 'c', 'd'].forEach((key, index) => screen.style.setProperty(`--bleed-${key}`, bleed[(index * Math.max(1, Math.floor(bleed.length / 4))) % bleed.length]));
         $('frameSize').disabled = state.frame === 'none';
         $('frameValue').textContent = state.frame === 'none' ? 'off' : `${state.frameInches.toFixed(2).replace(/\.00$/, '.0')} ${state.frameInches === 1 ? 'inch' : 'inches'}`;
         updateLabel();
       }
 
       function updateLabel() {
-        const frameName = state.frame === 'light' ? 'day frame' : state.frame === 'dark' ? 'night frame' : 'no frame';
-        $('screenLabel').textContent = `${state.count} tiles · ${frameName} · ${state.motion ? 'flipping' : 'still'}`;
+        const frameName = state.frame === 'frost' ? 'frost glass' : state.frame === 'smoke' ? 'smoke glass' : 'no frame';
+        $('screenLabel').textContent = `${state.count} ${state.mode} · ${frameName} · ${state.motion ? 'gentle motion' : 'still'}`;
       }
 
       function flipOne() {
@@ -516,20 +579,30 @@
         const tile = tiles[Math.floor(Math.random() * tiles.length)];
         const back = tile.querySelector('.back');
         const newColor = palette[Math.floor(Math.random() * palette.length)];
-        back.style.setProperty('--next-color', newColor);
+        const index = Number(tile.dataset.index);
+        back.style.setProperty('--next-color', tilePaint(newColor, index, 3));
         tile.classList.add('is-flipping');
         window.setTimeout(() => {
-          tile.querySelector('.front').style.setProperty('--color', newColor);
+          tile.querySelector('.front').style.setProperty('--color', tilePaint(newColor, index));
           tile.classList.remove('is-flipping');
-        }, 740);
+        }, 1300);
       }
 
       function restartMotion() {
         window.clearInterval(flipTimer);
         if (!state.motion) return;
-        const intervals = { 1: 2600, 2: 1500, 3: 700 };
+        const intervals = { 1: 10000, 2: 6000, 3: 2800 };
         flipTimer = window.setInterval(flipOne, intervals[state.speed]);
       }
+
+      $('fillChoices').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-mode]');
+        if (!button) return;
+        state.mode = button.dataset.mode;
+        document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice === button)));
+        renderGrid();
+        updateFrame();
+      });
 
       $('count').addEventListener('input', (event) => {
         state.count = Number(event.target.value);
@@ -562,7 +635,7 @@
 
       $('speed').addEventListener('input', (event) => {
         state.speed = Number(event.target.value);
-        $('speedValue').textContent = ({ 1: 'Slow', 2: 'Relaxed', 3: 'Lively' })[state.speed];
+        $('speedValue').textContent = ({ 1: 'Dreamy', 2: 'Calm', 3: 'Gentle' })[state.speed];
         restartMotion();
       });
 
@@ -601,8 +674,13 @@
           $('count').value = count;
           $('countValue').textContent = count;
         }
+        if (input.mode !== undefined) {
+          if (!['colors', 'gradients'].includes(input.mode)) throw new Error('Mode must be colors or gradients.');
+          state.mode = input.mode;
+          document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === state.mode)));
+        }
         if (input.frame !== undefined) {
-          if (!['none', 'light', 'dark'].includes(input.frame)) throw new Error('Frame must be none, light, or dark.');
+          if (!['none', 'frost', 'smoke'].includes(input.frame)) throw new Error('Frame must be none, frost, or smoke.');
           state.frame = input.frame;
           document.querySelectorAll('[data-frame]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.frame === state.frame)));
         }
@@ -614,7 +692,7 @@
         }
         updateFrame();
         renderGrid();
-        return { count: state.count, frame: state.frame, motion: state.motion };
+        return { count: state.count, mode: state.mode, frame: state.frame, motion: state.motion };
       }
 
       const context = document.modelContext;
@@ -623,12 +701,13 @@
           void Promise.resolve(context.registerTool({
             name: 'configure_tilewall',
             title: 'Configure tile wall',
-            description: 'Change the visible tile count, frame style, and random flip motion in the Tilewall preview.',
+            description: 'Change the visible tile count, color or gradient fill, glass frame style, and gentle flip motion in the Tilewall preview.',
             inputSchema: {
               type: 'object',
               properties: {
                 count: { type: 'integer', minimum: 2, maximum: 60 },
-                frame: { type: 'string', enum: ['none', 'light', 'dark'] },
+                mode: { type: 'string', enum: ['colors', 'gradients'] },
+                frame: { type: 'string', enum: ['none', 'frost', 'smoke'] },
                 motion: { type: 'boolean' }
               },
               additionalProperties: false
