@@ -36,6 +36,22 @@
       line-height: 1.45;
     }
 
+    body.wallpaper-mode { overflow: hidden; background: #08080a; }
+    body.wallpaper-mode .app { display: block; min-height: 100vh; }
+    body.wallpaper-mode .controls,
+    body.wallpaper-mode .preview-toolbar,
+    body.wallpaper-mode .tip { display: none; }
+    body.wallpaper-mode .workspace { min-height: 100vh; padding: 0; }
+    body.wallpaper-mode .screen-shell {
+      width: 100vw;
+      max-width: none;
+      height: 100vh;
+      aspect-ratio: auto;
+      padding: 0;
+      border-radius: 0;
+    }
+    body.wallpaper-mode .screen { border-radius: 0; }
+
     button, input { font: inherit; }
     button { color: inherit; }
 
@@ -317,7 +333,9 @@
         radial-gradient(circle at 12% 86%, var(--bleed-d, #ffd84d), transparent 36%);
       filter: blur(34px) saturate(1.18);
       opacity: .88;
-      transform: scale(1.08);
+      transform: translateZ(0) scale(1.08);
+      backface-visibility: hidden;
+      contain: paint;
     }
 
     .screen.album-bleed::before {
@@ -327,6 +345,7 @@
       background-repeat: no-repeat;
       filter: blur(38px) saturate(1.3);
       opacity: .95;
+      will-change: auto;
     }
 
     .screen::after {
@@ -360,10 +379,21 @@
       position: absolute;
       inset: 0;
       transform-style: preserve-3d;
-      transition: transform 1.28s cubic-bezier(.62,.02,.22,1);
+      transition: transform var(--flip-duration, 2.4s) cubic-bezier(.58,.02,.22,1);
     }
 
     .tile.is-flipping .tile-inner { transform: rotateY(180deg); }
+
+    .tile.wave-in .tile-inner {
+      animation: tile-wave 2.1s cubic-bezier(.2,.72,.18,1) both;
+      animation-delay: var(--wave-delay, 0ms);
+    }
+
+    @keyframes tile-wave {
+      0% { transform: rotateY(-92deg) scale(.975); opacity: .08; }
+      58% { opacity: 1; }
+      100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+    }
 
     .face {
       position: absolute;
@@ -479,8 +509,8 @@
           <button class="switch" id="motionToggle" type="button" role="switch" aria-checked="true" aria-labelledby="motion-title motionStatus"></button>
         </div>
         <div class="subrow" id="speedRow">
-          <label for="speed">Flip pace <span id="speedValue">Calm</span></label>
-          <input id="speed" type="range" min="1" max="3" value="2" step="1" aria-label="Flip pace" style="width: 110px">
+          <label for="speed">Turn speed <span id="speedValue">Slow</span></label>
+          <input id="speed" type="range" min="1" max="3" value="2" step="1" aria-label="How slowly tiles turn" style="width: 110px">
         </div>
       </section>
 
@@ -519,9 +549,13 @@
       ];
 
       const $ = (id) => document.getElementById(id);
+      const query = new URLSearchParams(window.location.search);
+      const wallpaperMode = query.has('wallpaper');
+      const initialMode = query.get('mode') === 'albums' ? 'albums' : 'colors';
+      if (wallpaperMode) document.body.classList.add('wallpaper-mode');
       const state = {
-        count: 12,
-        mode: 'colors',
+        count: initialMode === 'albums' ? 60 : 12,
+        mode: initialMode,
         frame: 'frost',
         frameInches: 1,
         motion: true,
@@ -532,6 +566,7 @@
       };
 
       let flipTimer = null;
+      let albumBleedTimer = null;
 
       function shuffledColors(count) {
         const pool = [...palette].sort(() => Math.random() - .5);
@@ -559,44 +594,81 @@
         return `linear-gradient(${angle}deg, ${color}, ${second})`;
       }
 
-      function makeTile(color, index) {
+      function waveDelay(index, columns) {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        return column * 92 + row * 19 + ((index * 47) % 83);
+      }
+
+      function prepareWave(tile, index, columns, wave) {
+        if (!wave) return;
+        tile.classList.add('wave-in');
+        tile.style.setProperty('--wave-delay', `${waveDelay(index, columns)}ms`);
+      }
+
+      function makeTile(color, index, wave, columns) {
         const tile = document.createElement('div');
         tile.className = 'tile';
         tile.dataset.index = index;
         const next = palette[(palette.indexOf(color) + 7 + index) % palette.length];
         tile.innerHTML = `<div class="tile-inner"><div class="face front" style="--color:${tilePaint(color, index)}"></div><div class="face back" style="--next-color:${tilePaint(next, index, 2)}"></div></div>`;
+        prepareWave(tile, index, columns, wave);
         return tile;
       }
 
-      function makeAlbumTile(album, index) {
+      function makeAlbumTile(album, index, wave, columns) {
         const tile = document.createElement('div');
         const next = state.albums[(index + 7) % state.albums.length] || album;
         tile.className = 'tile';
         tile.dataset.index = index;
+        tile.dataset.art = album.art;
         tile.innerHTML = `<div class="tile-inner"><div class="face front"><img src="${album.art}" alt="${album.title} by ${album.artist}"></div><div class="face back"><img src="${next.art}" alt="${next.title} by ${next.artist}"></div></div>`;
+        prepareWave(tile, index, columns, wave);
         return tile;
       }
 
-      function renderGrid() {
+      function renderGrid({ wave = false, refreshBleed = false } = {}) {
         const grid = $('grid');
         const shape = gridShape(state.count);
         grid.style.setProperty('--columns', shape.columns);
         grid.style.setProperty('--rows', shape.rows);
         if (state.mode === 'albums' && state.albums.length) {
-          grid.replaceChildren(...state.albums.slice(0, state.count).map(makeAlbumTile));
+          grid.replaceChildren(...state.albums.slice(0, state.count).map((album, index) => makeAlbumTile(album, index, wave, shape.columns)));
         } else {
           state.colors = state.colors.slice(0, state.count);
           while (state.colors.length < state.count) {
             state.colors.push(palette[Math.floor(Math.random() * palette.length)]);
           }
-          grid.replaceChildren(...state.colors.map(makeTile));
+          grid.replaceChildren(...state.colors.map((color, index) => makeTile(color, index, wave, shape.columns)));
         }
-        updateFrame();
+        updateFrame({ refreshBleed });
         updateLabel();
         restartMotion();
       }
 
-      function updateFrame() {
+      function currentAlbumBleed() {
+        const tiles = [...document.querySelectorAll('.tile')];
+        if (!tiles.length) return [];
+        const { columns, rows } = gridShape(tiles.length);
+        const indexes = [0, Math.min(columns - 1, tiles.length - 1), Math.min((rows - 1) * columns, tiles.length - 1), tiles.length - 1];
+        return indexes.map((index) => tiles[index]?.querySelector('.front img')?.src).filter(Boolean);
+      }
+
+      function refreshAlbumBleed() {
+        const sample = currentAlbumBleed();
+        if (sample.length) $('screen').style.setProperty('--album-bleed', sample.map((art) => `url("${art}")`).join(','));
+      }
+
+      function restartAlbumBleedTimer() {
+        window.clearTimeout(albumBleedTimer);
+        if (state.mode !== 'albums') return;
+        albumBleedTimer = window.setTimeout(() => {
+          refreshAlbumBleed();
+          restartAlbumBleedTimer();
+        }, 60000);
+      }
+
+      function updateFrame({ refreshBleed = false } = {}) {
         const screen = $('screen');
         const previewScale = state.phone ? 18 : 24;
         const width = state.frame === 'none' ? 0 : state.frameInches * previewScale;
@@ -604,9 +676,10 @@
         screen.style.setProperty('--glass-tint', state.frame === 'smoke' ? 'rgba(8,10,15,.58)' : 'rgba(248,250,255,.38)');
         screen.classList.toggle('album-bleed', state.mode === 'albums' && state.albums.length > 0);
         if (state.mode === 'albums' && state.albums.length) {
-          const sample = [0, .25, .5, .75].map((point) => state.albums[Math.floor(point * (state.albums.length - 1))]);
-          screen.style.setProperty('--album-bleed', sample.map((album) => `url("${album.art}")`).join(','));
+          if (refreshBleed || !screen.style.getPropertyValue('--album-bleed')) refreshAlbumBleed();
+          restartAlbumBleedTimer();
         } else {
+          window.clearTimeout(albumBleedTimer);
           const bleed = state.colors.length ? state.colors : palette;
           ['a', 'b', 'c', 'd'].forEach((key, index) => screen.style.setProperty(`--bleed-${key}`, bleed[(index * Math.max(1, Math.floor(bleed.length / 4))) % bleed.length]));
         }
@@ -624,7 +697,8 @@
       }
 
       function flipOne() {
-        const tiles = [...document.querySelectorAll('.tile')];
+        const allTiles = [...document.querySelectorAll('.tile')];
+        const tiles = allTiles.filter((candidate) => !candidate.classList.contains('is-flipping'));
         if (!tiles.length || !state.motion) return;
         const tile = tiles[Math.floor(Math.random() * tiles.length)];
         const back = tile.querySelector('.back');
@@ -632,7 +706,10 @@
         let nextAlbum;
         let newColor;
         if (state.mode === 'albums') {
-          nextAlbum = state.albums[Math.floor(Math.random() * state.albums.length)];
+          const visibleArt = new Set(allTiles.map((candidate) => candidate.dataset.art));
+          const choices = state.albums.filter((album) => !visibleArt.has(album.art));
+          if (!choices.length) return;
+          nextAlbum = choices[Math.floor(Math.random() * choices.length)];
           const image = back.querySelector('img');
           image.src = nextAlbum.art;
           image.alt = `${nextAlbum.title} by ${nextAlbum.artist}`;
@@ -646,18 +723,27 @@
             const image = tile.querySelector('.front img');
             image.src = nextAlbum.art;
             image.alt = `${nextAlbum.title} by ${nextAlbum.artist}`;
+            tile.dataset.art = nextAlbum.art;
           } else {
             tile.querySelector('.front').style.setProperty('--color', tilePaint(newColor, index));
           }
           tile.classList.remove('is-flipping');
-        }, 1300);
+        }, flipDuration());
+      }
+
+      function flipDuration() {
+        return ({ 1: 1800, 2: 2400, 3: 3200 })[state.speed];
+      }
+
+      function updateFlipDuration() {
+        $('grid').style.setProperty('--flip-duration', `${flipDuration()}ms`);
       }
 
       function restartMotion() {
         window.clearInterval(flipTimer);
         if (!state.motion) return;
-        const intervals = { 1: 10000, 2: 6000, 3: 2800 };
-        flipTimer = window.setInterval(flipOne, intervals[state.speed]);
+        updateFlipDuration();
+        flipTimer = window.setInterval(flipOne, 3200);
       }
 
       $('fillChoices').addEventListener('click', (event) => {
@@ -670,8 +756,7 @@
           $('countValue').textContent = 60;
         }
         document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice === button)));
-        renderGrid();
-        updateFrame();
+        renderGrid({ wave: true, refreshBleed: true });
       });
 
       $('count').addEventListener('input', (event) => {
@@ -705,14 +790,14 @@
 
       $('speed').addEventListener('input', (event) => {
         state.speed = Number(event.target.value);
-        $('speedValue').textContent = ({ 1: 'Dreamy', 2: 'Calm', 3: 'Gentle' })[state.speed];
-        restartMotion();
+        $('speedValue').textContent = ({ 1: 'Glide', 2: 'Slow', 3: 'Dreamy' })[state.speed];
+        updateFlipDuration();
       });
 
       $('shuffle').addEventListener('click', () => {
         if (state.mode === 'albums') state.albums.sort(() => Math.random() - .5);
         else state.colors = shuffledColors(state.count);
-        renderGrid();
+        renderGrid({ wave: true, refreshBleed: state.mode === 'albums' });
       });
 
       $('fullscreen').addEventListener('click', async () => {
@@ -730,7 +815,7 @@
         $('desktopView').setAttribute('aria-pressed', String(!phone));
         $('phoneView').setAttribute('aria-pressed', String(phone));
         updateFrame();
-        renderGrid();
+        renderGrid({ wave: true, refreshBleed: state.mode === 'albums' });
       }
 
       $('desktopView').addEventListener('click', () => setDevice(false));
@@ -767,7 +852,7 @@
           $('motionStatus').textContent = state.motion ? 'Motion is on' : 'Motion is off';
         }
         updateFrame();
-        renderGrid();
+        renderGrid({ wave: input.mode !== undefined, refreshBleed: input.mode !== undefined && state.mode === 'albums' });
         return { count: state.count, mode: state.mode, frame: state.frame, motion: state.motion };
       }
 
@@ -795,7 +880,7 @@
       }
 
       state.colors = shuffledColors(state.count);
-      renderGrid();
+      renderGrid({ wave: true });
       updateFrame();
     })();
   </script>
