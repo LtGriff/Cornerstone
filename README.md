@@ -14,6 +14,16 @@ Then open `http://localhost:8080`. The wallpaper-only view is at `http://localho
 
 No build or install step is currently required.
 
+## Phone wallpaper export
+
+Choose albums or colors, adjust the detail and frame, then use **Save phone wallpaper**. Cornerstone creates a 1290 × 2796 PNG with a completely filled grid.
+
+## Spotify import
+
+Cornerstone uses Spotify's Authorization Code with PKCE flow, so no Client Secret is placed in the site. Create a Spotify developer app, add the exact Cornerstone URL shown in the connection dialog as a Redirect URI, and paste the app's Client ID into Cornerstone. The import requests `user-top-read`, loads up to 50 top tracks for the selected period, and deduplicates them by album.
+
+Spotify Development Mode currently requires the app owner to have Premium and supports up to five allowlisted users. Add each tester in the Spotify Developer Dashboard. The Client ID is saved only in the browser; temporary authorization values are removed after import.
+
 ## Choosing albums
 
 Open **Albums**, choose **Choose your albums**, search for the artist, select the correct artist record, and then choose between 4 and 60 official album or EP covers. The first four choices become the permanent cornerstones. A manual artwork upload is available when the catalog is incomplete. The selected catalog entries are saved only in that browser on that device. Resetting to the chart test clears the saved selection.
