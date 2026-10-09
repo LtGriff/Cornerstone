@@ -16,7 +16,7 @@ No build or install step is currently required.
 
 ## Choosing albums
 
-Open **Albums**, choose **Choose your albums**, search an artist or album, and select between 2 and 60 covers. The selected catalog entries are saved only in that browser on that device. Resetting to the chart test clears the saved selection.
+Open **Albums**, choose **Choose your albums**, search for the artist, select the correct artist record, and then choose between 4 and 60 official album or EP covers. The first four choices become the permanent cornerstones. A manual artwork upload is available when the catalog is incomplete. The selected catalog entries are saved only in that browser on that device. Resetting to the chart test clears the saved selection.
 
 ## Personal music connection design
 
