@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0b0d">
+  <meta name="description" content="Design a colorful tile wall with colors, gradients, glass frames, and gentle flip motion.">
+  <title>Tilewall</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0b0d'/%3E%3Cpath d='M5 5h10v10H5zm12 0h10v10H17zM5 17h10v10H5z' fill='%23fb4b68'/%3E%3Cpath d='M17 17h10v10H17z' fill='%235fe0c1'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f6f4ef;
+      --muted: #9a9894;
+      --panel: #151518;
+      --panel-2: #1d1d21;
+      --line: #303036;
+      --accent: #ff5d78;
+      --frame: #f3f0e8;
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-width: 320px; background: #0b0b0d; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 0 0, rgba(255, 93, 120, .08), transparent 28rem),
+        #0b0b0d;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    body.wallpaper-mode { overflow: hidden; background: #08080a; }
+    body.wallpaper-mode .app { display: block; min-height: 100vh; }
+    body.wallpaper-mode .controls,
+    body.wallpaper-mode .preview-toolbar,
+    body.wallpaper-mode .tip { display: none; }
+    body.wallpaper-mode .workspace { min-height: 100vh; padding: 0; }
+    body.wallpaper-mode .screen-shell {
+      width: 100vw;
+      max-width: none;
+      height: 100vh;
+      aspect-ratio: auto;
+      padding: 0;
+      border-radius: 0;
+    }
+    body.wallpaper-mode .screen { border-radius: 0; }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+    }
+
+    .controls {
+      min-height: 100vh;
+      padding: 28px clamp(20px, 3vw, 42px) 34px;
+      border-right: 1px solid var(--line);
+      background: rgba(11, 11, 13, .93);
+      backdrop-filter: blur(18px);
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-bottom: 28px;
+      font-weight: 780;
+      letter-spacing: -.03em;
+    }
+
+    .mark {
+      width: 29px;
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      transform: rotate(-5deg);
+    }
+
+    .mark i { border-radius: 3px; background: var(--accent); }
+    .mark i:last-child { background: #5fe0c1; }
+
+    h1 {
+      margin: 0;
+      max-width: 12ch;
+      font-size: clamp(2.25rem, 5vw, 4.2rem);
+      line-height: .97;
+      letter-spacing: -.065em;
+    }
+
+    .intro {
+      margin: 16px 0 30px;
+      max-width: 34ch;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .question {
+      padding: 20px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .question-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 13px;
+    }
+
+    .question h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 680;
+      letter-spacing: -.01em;
+    }
+
+    .step {
+      color: #706f73;
+      font-size: .78rem;
+      letter-spacing: .1em;
+    }
+
+    .count-output {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      margin-bottom: 13px;
+    }
+
+    .count-output strong {
+      font-size: 2.25rem;
+      line-height: 1;
+      letter-spacing: -.06em;
+    }
+
+    .count-output span { color: var(--muted); }
+
+    input[type="range"] {
+      width: 100%;
+      height: 22px;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .range-labels {
+      display: flex;
+      justify-content: space-between;
+      color: #757479;
+      font-size: .76rem;
+    }
+
+    .segmented {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: 5px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #101012;
+    }
+
+    .segmented button,
+    .action {
+      min-height: 42px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      cursor: pointer;
+      transition: background .18s ease, transform .18s ease, color .18s ease;
+    }
+
+    .segmented button:hover { background: #232328; }
+    .segmented button[aria-pressed="true"] { background: #f5f2ea; color: #101012; }
+    .segmented button:disabled { color: #66656a; cursor: not-allowed; }
+    .segmented button:disabled:hover { background: transparent; }
+    .soon {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: .64rem;
+      letter-spacing: .04em;
+      vertical-align: .12em;
+    }
+
+    .source-note {
+      margin: 10px 2px 0;
+      color: #85848a;
+      font-size: .76rem;
+      line-height: 1.4;
+    }
+
+    .source-note a { color: #bbb9c0; text-underline-offset: 3px; }
+    .segmented button:focus-visible, .action:focus-visible, .icon-button:focus-visible { outline: 3px solid #8b7cff; outline-offset: 2px; }
+
+    .subrow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 18px;
+      margin-top: 15px;
+    }
+
+    .subrow label { color: var(--muted); font-size: .88rem; }
+
+    .switch {
+      width: 47px;
+      height: 27px;
+      padding: 3px;
+      border: 0;
+      border-radius: 999px;
+      background: #3b3a3f;
+      cursor: pointer;
+      transition: background .2s ease;
+    }
+
+    .switch::after {
+      content: "";
+      display: block;
+      width: 21px;
+      height: 21px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 2px 7px rgba(0,0,0,.35);
+      transition: transform .22s cubic-bezier(.2,.9,.3,1.2);
+    }
+
+    .switch[aria-checked="true"] { background: var(--accent); }
+    .switch[aria-checked="true"]::after { transform: translateX(20px); }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .action { background: #242429; font-weight: 650; }
+    .action:hover { background: #303037; transform: translateY(-1px); }
+    .action.primary { background: var(--accent); color: #16080c; }
+    .action.primary:hover { background: #ff7890; }
+
+    .workspace {
+      min-height: 100vh;
+      padding: clamp(22px, 4vw, 58px);
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 18px;
+      overflow: hidden;
+    }
+
+    .preview-toolbar {
+      width: min(100%, 1050px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--muted);
+      font-size: .86rem;
+    }
+
+    .device-switch { display: flex; gap: 5px; }
+
+    .icon-button {
+      min-height: 38px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #151518;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .icon-button[aria-pressed="true"] { background: var(--ink); color: #111; border-color: var(--ink); }
+
+    .screen-shell {
+      position: relative;
+      width: min(100%, 1050px);
+      aspect-ratio: 16 / 10;
+      padding: clamp(8px, 1vw, 14px);
+      border-radius: 28px;
+      background: #222227;
+      box-shadow: 0 28px 80px rgba(0,0,0,.46), 0 0 0 1px rgba(255,255,255,.05);
+      transition: width .35s ease, aspect-ratio .35s ease;
+    }
+
+    .screen-shell.phone {
+      width: min(100%, 390px);
+      aspect-ratio: 9 / 18.5;
+    }
+
+    .screen {
+      position: relative;
+      isolation: isolate;
+      width: 100%;
+      height: 100%;
+      padding: var(--frame-size, 0px);
+      border-radius: 17px;
+      overflow: hidden;
+      background: #15151a;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.16);
+      transition: padding .25s ease, background .25s ease;
+    }
+
+    .screen::before,
+    .screen::after {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .screen::before {
+      inset: -22%;
+      background:
+        radial-gradient(circle at 8% 18%, var(--bleed-a, #ff5d78), transparent 34%),
+        radial-gradient(circle at 88% 12%, var(--bleed-b, #47d6ca), transparent 35%),
+        radial-gradient(circle at 82% 88%, var(--bleed-c, #6d7cff), transparent 38%),
+        radial-gradient(circle at 12% 86%, var(--bleed-d, #ffd84d), transparent 36%);
+      filter: blur(34px) saturate(1.18);
+      opacity: .88;
+      transform: translateZ(0) scale(1.08);
+      backface-visibility: hidden;
+      contain: paint;
+    }
+
+    .screen.album-bleed::before {
+      background-image: var(--album-bleed);
+      background-size: 58% 58%;
+      background-position: left top, right top, right bottom, left bottom;
+      background-repeat: no-repeat;
+      filter: blur(38px) saturate(1.3);
+      opacity: .95;
+      will-change: auto;
+    }
+
+    .screen::after {
+      inset: 0;
+      background: var(--glass-tint, rgba(247,249,255,.38));
+      backdrop-filter: blur(22px) saturate(1.25);
+    }
+
+    .grid {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+      grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+      gap: 0;
+      background: #121214;
+      overflow: hidden;
+    }
+
+    .tile {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      perspective: 750px;
+      background: #111;
+    }
+
+    .tile-inner {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform var(--flip-duration, 2.4s) cubic-bezier(.58,.02,.22,1);
+    }
+
+    .tile.is-flipping .tile-inner { transform: rotateY(180deg); }
+
+    .tile.wave-in .tile-inner {
+      animation: tile-wave 2.1s cubic-bezier(.2,.72,.18,1) both;
+      animation-delay: var(--wave-delay, 0ms);
+    }
+
+    @keyframes tile-wave {
+      0% { transform: rotateY(-92deg) scale(.975); opacity: .08; }
+      58% { opacity: 1; }
+      100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      background: var(--color);
+    }
+
+    .face.back { transform: rotateY(180deg); background: var(--next-color); }
+
+    .face img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .screen-label {
+      position: absolute;
+      left: 18px;
+      bottom: 15px;
+      z-index: 3;
+      padding: 7px 11px;
+      border-radius: 999px;
+      color: white;
+      background: rgba(12,12,14,.58);
+      backdrop-filter: blur(10px);
+      font-size: .76rem;
+      pointer-events: none;
+    }
+
+    .screen:fullscreen { border-radius: 0; }
+    .screen:fullscreen .grid { border-radius: 0; }
+
+    .tip { color: #6f6e73; font-size: .78rem; text-align: center; }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .controls { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      h1 { max-width: 15ch; }
+      .workspace { min-height: auto; padding: 30px 18px 50px; }
+    }
+
+    @media (max-width: 520px) {
+      .controls { padding: 22px 18px 26px; }
+      .brand { margin-bottom: 22px; }
+      h1 { font-size: 2.45rem; }
+      .intro { margin-bottom: 22px; }
+      .actions { grid-template-columns: 1fr; }
+      .preview-toolbar { align-items: flex-start; }
+      .screen-shell { border-radius: 20px; padding: 8px; }
+      .screen { border-radius: 13px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="controls" aria-labelledby="page-title">
+      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Tilewall</div>
+      <h1 id="page-title">Build your screen.</h1>
+      <p class="intro">Shape the wall with colors, gradients, or today’s chart covers.</p>
+
+      <section class="question" aria-labelledby="fill-title">
+        <div class="question-head">
+          <h2 id="fill-title">What should fill the tiles?</h2>
+          <span class="step">01</span>
+        </div>
+        <div class="segmented" id="fillChoices" aria-label="Tile fill">
+          <button type="button" data-mode="colors" aria-pressed="true">Colors</button>
+          <button type="button" data-mode="gradients" aria-pressed="false">Gradients</button>
+          <button type="button" data-mode="albums" aria-pressed="false">Albums <span class="soon">TOP 60</span></button>
+        </div>
+        <p class="source-note" id="fillNote" hidden>Randomized from an October 9 <a href="https://music.apple.com/us/playlist/top-100-usa/pl.606afcbb70264d2eb2b51d8dbcfa6a12" target="_blank" rel="noreferrer">Apple Music Top 100: USA</a> snapshot.</p>
+      </section>
+
+      <section class="question" aria-labelledby="count-title">
+        <div class="question-head">
+          <h2 id="count-title">How many tiles do you want?</h2>
+          <span class="step">02</span>
+        </div>
+        <div class="count-output"><strong id="countValue">12</strong><span>tiles</span></div>
+        <input id="count" type="range" min="2" max="60" value="12" aria-label="Number of tiles">
+        <div class="range-labels"><span>2</span><span>60</span></div>
+      </section>
+
+      <section class="question" aria-labelledby="frame-title">
+        <div class="question-head">
+          <h2 id="frame-title">Do you want a frame?</h2>
+          <span class="step">03</span>
+        </div>
+        <div class="segmented" id="frameChoices" aria-label="Frame style">
+          <button type="button" data-frame="none" aria-pressed="false">None</button>
+          <button type="button" data-frame="frost" aria-pressed="true">Frost</button>
+          <button type="button" data-frame="smoke" aria-pressed="false">Smoke</button>
+        </div>
+        <div class="subrow">
+          <label for="frameSize">Frame width <span id="frameValue">1.0 inch</span></label>
+          <input id="frameSize" type="range" min="0" max="2" value="1" step="0.25" aria-label="Frame width in inches" style="width: 110px">
+        </div>
+      </section>
+
+      <section class="question" aria-labelledby="motion-title">
+        <div class="question-head">
+          <h2 id="motion-title">Should tiles randomly flip?</h2>
+          <span class="step">04</span>
+        </div>
+        <div class="subrow" style="margin-top:0">
+          <label id="motionStatus">Motion is on</label>
+          <button class="switch" id="motionToggle" type="button" role="switch" aria-checked="true" aria-labelledby="motion-title motionStatus"></button>
+        </div>
+        <div class="subrow" id="speedRow">
+          <label for="speed">Turn speed <span id="speedValue">Slow</span></label>
+          <input id="speed" type="range" min="1" max="3" value="2" step="1" aria-label="How slowly tiles turn" style="width: 110px">
+        </div>
+      </section>
+
+      <div class="actions">
+        <button class="action" id="shuffle" type="button">Shuffle colors</button>
+        <button class="action primary" id="fullscreen" type="button">View full screen</button>
+      </div>
+    </section>
+
+    <section class="workspace" aria-label="Wallpaper preview">
+      <div class="preview-toolbar">
+        <span>Live preview</span>
+        <div class="device-switch" aria-label="Preview shape">
+          <button class="icon-button" id="desktopView" type="button" aria-pressed="true">Desktop</button>
+          <button class="icon-button" id="phoneView" type="button" aria-pressed="false">Phone</button>
+        </div>
+      </div>
+      <div class="screen-shell" id="screenShell">
+        <div class="screen" id="screen">
+          <div class="grid" id="grid"></div>
+          <span class="screen-label" id="screenLabel">12 tiles · day frame · flipping</span>
+        </div>
+      </div>
+      <p class="tip">Every choice updates the preview immediately. Click a cover to see the song.</p>
+    </section>
+  </main>
+
+  <script src="top-songs.js"></script>
+  <script>
+    (() => {
+      const palette = [
+        '#ff5d78', '#ff8f3d', '#ffd84d', '#b8e348', '#51d88a', '#47d6ca',
+        '#49a8ff', '#6d7cff', '#9f6bff', '#d45ee8', '#f36ab3', '#ef4444',
+        '#0ea5a4', '#2f78df', '#7547d8', '#df3d82', '#f59e0b', '#84cc16',
+        '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899', '#fb7185', '#22c55e'
+      ];
+
+      const $ = (id) => document.getElementById(id);
+
+      function shuffle(list) {
+        const a = [...list];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      // Fair shuffle, with at most 5 covers per lead artist so one act can't dominate the wall.
+      function curatedAlbums() {
+        const seen = {};
+        return shuffle(window.TOP_SONGS || []).filter((song) => {
+          const key = song.artist.split(/,|&| feat/)[0].trim().toLowerCase();
+          seen[key] = (seen[key] || 0) + 1;
+          return seen[key] <= 5;
+        });
+      }
+      const query = new URLSearchParams(window.location.search);
+      const wallpaperMode = query.has('wallpaper');
+      const initialMode = query.get('mode') === 'albums' ? 'albums' : 'colors';
+      if (wallpaperMode) document.body.classList.add('wallpaper-mode');
+      const state = {
+        count: initialMode === 'albums' ? 60 : 12,
+        mode: initialMode,
+        frame: 'frost',
+        frameInches: 1,
+        motion: true,
+        speed: 2,
+        phone: false,
+        colors: [],
+        albums: curatedAlbums(),
+        shape: { columns: 1, rows: 1 }
+      };
+
+      let flipTimer = null;
+      let albumBleedTimer = null;
+
+      function shuffledColors(count) {
+        const pool = shuffle(palette);
+        return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
+      }
+
+      function gridShape(count) {
+        const aspect = state.phone ? 9 / 18.5 : 16 / 10;
+        const maxEmpty = Math.max(2, Math.round(count * .08));
+        let best = { columns: 1, rows: count, score: Infinity };
+        for (let columns = 1; columns <= count; columns++) {
+          const rows = Math.ceil(count / columns);
+          const empties = columns * rows - count;
+          if (empties > maxEmpty) continue;
+          const score = Math.abs(Math.log((columns / rows) / aspect)) + empties * .05;
+          if (score < best.score) best = { columns, rows, score };
+        }
+        return best;
+      }
+
+      function tilePaint(color, index, offset = 0) {
+        if (state.mode === 'colors') return color;
+        const first = palette.indexOf(color);
+        const second = palette[(Math.max(0, first) + 5 + index + offset) % palette.length];
+        const angle = (35 + index * 29 + offset * 17) % 180;
+        return `linear-gradient(${angle}deg, ${color}, ${second})`;
+      }
+
+      function waveDelay(index, columns) {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        return column * 92 + row * 19 + ((index * 47) % 83);
+      }
+
+      function prepareWave(tile, index, columns, wave) {
+        if (!wave) return;
+        tile.classList.add('wave-in');
+        tile.style.setProperty('--wave-delay', `${waveDelay(index, columns)}ms`);
+      }
+
+      function makeTile(color, index, wave, columns) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.dataset.index = index;
+        const next = palette[(palette.indexOf(color) + 7 + index) % palette.length];
+        tile.innerHTML = `<div class="tile-inner"><div class="face front" style="--color:${tilePaint(color, index)}"></div><div class="face back" style="--next-color:${tilePaint(next, index, 2)}"></div></div>`;
+        prepareWave(tile, index, columns, wave);
+        return tile;
+      }
+
+      function makeAlbumTile(album, index, wave, columns) {
+        const tile = document.createElement('div');
+        const next = state.albums[(index + 7) % state.albums.length] || album;
+        tile.className = 'tile';
+        tile.dataset.index = index;
+        tile.dataset.art = album.art;
+        tile.innerHTML = `<div class="tile-inner"><div class="face front"><img src="${album.art}" alt="${album.title} by ${album.artist}"></div><div class="face back"><img src="${next.art}" alt="${next.title} by ${next.artist}"></div></div>`;
+        prepareWave(tile, index, columns, wave);
+        return tile;
+      }
+
+      function renderGrid({ wave = false, refreshBleed = false } = {}) {
+        const grid = $('grid');
+        const shape = gridShape(state.count);
+        grid.style.setProperty('--columns', shape.columns);
+        grid.style.setProperty('--rows', shape.rows);
+        state.shape = shape;
+        const total = shape.columns * shape.rows;
+        $('countValue').textContent = total;
+        if (state.mode === 'albums' && state.albums.length) {
+          grid.replaceChildren(...state.albums.slice(0, total).map((album, index) => makeAlbumTile(album, index, wave, shape.columns)));
+        } else {
+          state.colors = state.colors.slice(0, total);
+          while (state.colors.length < total) {
+            state.colors.push(palette[Math.floor(Math.random() * palette.length)]);
+          }
+          grid.replaceChildren(...state.colors.map((color, index) => makeTile(color, index, wave, shape.columns)));
+        }
+        updateFrame({ refreshBleed });
+        updateLabel();
+        restartMotion();
+      }
+
+      function currentAlbumBleed() {
+        const tiles = [...document.querySelectorAll('.tile')];
+        if (!tiles.length) return [];
+        const { columns, rows } = state.shape;
+        const indexes = [0, Math.min(columns - 1, tiles.length - 1), Math.min((rows - 1) * columns, tiles.length - 1), tiles.length - 1];
+        return indexes.map((index) => tiles[index]?.querySelector('.front img')?.src).filter(Boolean);
+      }
+
+      function refreshAlbumBleed() {
+        const sample = currentAlbumBleed();
+        if (sample.length) $('screen').style.setProperty('--album-bleed', sample.map((art) => `url("${art}")`).join(','));
+      }
+
+      function restartAlbumBleedTimer() {
+        window.clearTimeout(albumBleedTimer);
+        if (state.mode !== 'albums') return;
+        albumBleedTimer = window.setTimeout(() => {
+          refreshAlbumBleed();
+          restartAlbumBleedTimer();
+        }, 60000);
+      }
+
+      function updateFrame({ refreshBleed = false } = {}) {
+        const screen = $('screen');
+        const previewScale = state.phone ? 18 : 24;
+        const width = state.frame === 'none' ? 0 : state.frameInches * previewScale;
+        screen.style.setProperty('--frame-size', `${width}px`);
+        screen.style.setProperty('--glass-tint', state.frame === 'smoke' ? 'rgba(8,10,15,.58)' : 'rgba(248,250,255,.38)');
+        screen.classList.toggle('album-bleed', state.mode === 'albums' && state.albums.length > 0);
+        if (state.mode === 'albums' && state.albums.length) {
+          if (refreshBleed || !screen.style.getPropertyValue('--album-bleed')) refreshAlbumBleed();
+          restartAlbumBleedTimer();
+        } else {
+          window.clearTimeout(albumBleedTimer);
+          const bleed = state.colors.length ? state.colors : palette;
+          ['a', 'b', 'c', 'd'].forEach((key, index) => screen.style.setProperty(`--bleed-${key}`, bleed[(index * Math.max(1, Math.floor(bleed.length / 4))) % bleed.length]));
+        }
+        $('frameSize').disabled = state.frame === 'none';
+        $('frameValue').textContent = state.frame === 'none' ? 'off' : `${state.frameInches.toFixed(2).replace(/\.00$/, '.0')} ${state.frameInches === 1 ? 'inch' : 'inches'}`;
+        updateLabel();
+      }
+
+      function updateLabel() {
+        const frameName = state.frame === 'frost' ? 'frost glass' : state.frame === 'smoke' ? 'smoke glass' : 'no frame';
+        const material = state.mode === 'albums' ? 'chart covers' : state.mode;
+        $('screenLabel').textContent = `${state.count} ${material} · ${frameName} · ${state.motion ? 'gentle motion' : 'still'}`;
+        $('shuffle').textContent = state.mode === 'albums' ? 'Shuffle albums' : state.mode === 'gradients' ? 'Shuffle gradients' : 'Shuffle colors';
+        $('fillNote').hidden = state.mode !== 'albums';
+      }
+
+      function flipTile(tile, delay = 0) {
+        if (!tile || !state.motion || tile.dataset.busy) return;
+        const back = tile.querySelector('.back');
+        const index = Number(tile.dataset.index);
+        let nextAlbum;
+        let newColor;
+        if (state.mode === 'albums') {
+          const taken = new Set([...document.querySelectorAll('.tile')].map((t) => t.dataset.pending || t.dataset.art));
+          const choices = state.albums.filter((album) => !taken.has(album.art));
+          if (!choices.length) return;
+          nextAlbum = choices[Math.floor(Math.random() * choices.length)];
+          tile.dataset.pending = nextAlbum.art;
+          const image = back.querySelector('img');
+          image.src = nextAlbum.art;
+          image.alt = `${nextAlbum.title} by ${nextAlbum.artist}`;
+        } else {
+          newColor = palette[Math.floor(Math.random() * palette.length)];
+          back.style.setProperty('--next-color', tilePaint(newColor, index, 3));
+        }
+        tile.dataset.busy = '1';
+        const start = () => window.setTimeout(() => {
+          tile.classList.add('is-flipping');
+          window.setTimeout(() => {
+            if (nextAlbum) {
+              const image = tile.querySelector('.front img');
+              image.src = nextAlbum.art;
+              image.alt = `${nextAlbum.title} by ${nextAlbum.artist}`;
+              tile.dataset.art = nextAlbum.art;
+              delete tile.dataset.pending;
+            } else {
+              tile.querySelector('.front').style.setProperty('--color', tilePaint(newColor, index));
+            }
+            // Snap back without a second spin: the front now shows the new face.
+            const inner = tile.querySelector('.tile-inner');
+            inner.style.transition = 'none';
+            tile.classList.remove('is-flipping');
+            void inner.offsetWidth;
+            inner.style.transition = '';
+            delete tile.dataset.busy;
+          }, flipDuration());
+        }, delay);
+        // Preload the incoming cover so a flip never reveals a blank face.
+        if (nextAlbum) {
+          const preload = new Image();
+          preload.src = nextAlbum.art;
+          (preload.decode ? preload.decode() : Promise.resolve()).catch(() => {}).then(start);
+        } else {
+          start();
+        }
+      }
+
+      function ripple() {
+        const tiles = [...document.querySelectorAll('.tile')];
+        if (!tiles.length) return;
+        const { columns } = state.shape;
+        const origin = Math.floor(Math.random() * tiles.length);
+        const ox = origin % columns;
+        const oy = Math.floor(origin / columns);
+        const radius = state.mode === 'albums' ? 2.3 : 3.2;
+        tiles.forEach((tile, i) => {
+          const distance = Math.hypot((i % columns) - ox, Math.floor(i / columns) - oy);
+          if (distance <= radius) flipTile(tile, distance * 160);
+        });
+      }
+
+      let motionTicks = 0;
+      function motionTick() {
+        motionTicks += 1;
+        if (motionTicks % 5 === 0) return ripple();
+        const tiles = [...document.querySelectorAll('.tile')].filter((tile) => !tile.dataset.busy);
+        flipTile(tiles[Math.floor(Math.random() * tiles.length)]);
+      }
+
+      function flipDuration() {
+        return ({ 1: 1800, 2: 2400, 3: 3200 })[state.speed];
+      }
+
+      function updateFlipDuration() {
+        $('grid').style.setProperty('--flip-duration', `${flipDuration()}ms`);
+      }
+
+      function restartMotion() {
+        window.clearInterval(flipTimer);
+        if (!state.motion) return;
+        updateFlipDuration();
+        flipTimer = window.setInterval(motionTick, 1800);
+      }
+
+      $('fillChoices').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-mode]');
+        if (!button) return;
+        state.mode = button.dataset.mode;
+        if (state.mode === 'albums') {
+          state.count = 60;
+          $('count').value = 60;
+          $('countValue').textContent = 60;
+        }
+        document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice === button)));
+        renderGrid({ wave: true, refreshBleed: true });
+      });
+
+      $('count').addEventListener('input', (event) => {
+        state.count = Number(event.target.value);
+        $('countValue').textContent = state.count;
+        renderGrid();
+      });
+
+      $('frameChoices').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-frame]');
+        if (!button) return;
+        state.frame = button.dataset.frame;
+        document.querySelectorAll('[data-frame]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice === button)));
+        updateFrame();
+      });
+
+      $('frameSize').addEventListener('input', (event) => {
+        state.frameInches = Number(event.target.value);
+        updateFrame();
+      });
+
+      $('motionToggle').addEventListener('click', () => {
+        state.motion = !state.motion;
+        $('motionToggle').setAttribute('aria-checked', String(state.motion));
+        $('motionStatus').textContent = state.motion ? 'Motion is on' : 'Motion is off';
+        $('speedRow').style.opacity = state.motion ? '1' : '.42';
+        $('speed').disabled = !state.motion;
+        updateLabel();
+        restartMotion();
+      });
+
+      $('speed').addEventListener('input', (event) => {
+        state.speed = Number(event.target.value);
+        $('speedValue').textContent = ({ 1: 'Glide', 2: 'Slow', 3: 'Dreamy' })[state.speed];
+        updateFlipDuration();
+      });
+
+      $('shuffle').addEventListener('click', () => {
+        if (state.mode === 'albums') state.albums = curatedAlbums();
+        else state.colors = shuffledColors(state.count);
+        renderGrid({ wave: true, refreshBleed: state.mode === 'albums' });
+      });
+
+      $('fullscreen').addEventListener('click', async () => {
+        try {
+          if (!document.fullscreenElement) await $('screen').requestFullscreen();
+          else await document.exitFullscreen();
+        } catch (_) {
+          $('screenLabel').textContent = 'Full screen is unavailable in this browser';
+        }
+      });
+
+      $('grid').addEventListener('click', (event) => {
+        const tile = event.target.closest('.tile');
+        if (!tile || state.mode !== 'albums') return;
+        const album = state.albums.find((item) => item.art === tile.dataset.art);
+        if (!album) return;
+        $('screenLabel').textContent = `${album.title} · ${album.artist}`;
+        window.clearTimeout(window.__labelTimer);
+        window.__labelTimer = window.setTimeout(updateLabel, 3500);
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) window.clearInterval(flipTimer);
+        else restartMotion();
+      });
+
+      function setDevice(phone) {
+        state.phone = phone;
+        $('screenShell').classList.toggle('phone', phone);
+        $('desktopView').setAttribute('aria-pressed', String(!phone));
+        $('phoneView').setAttribute('aria-pressed', String(phone));
+        updateFrame();
+        renderGrid({ wave: true, refreshBleed: state.mode === 'albums' });
+      }
+
+      $('desktopView').addEventListener('click', () => setDevice(false));
+      $('phoneView').addEventListener('click', () => setDevice(true));
+
+      function applySettings(input) {
+        if (!input || typeof input !== 'object') throw new Error('Settings are required.');
+        if (input.count !== undefined) {
+          const count = Number(input.count);
+          if (!Number.isInteger(count) || count < 2 || count > 60) throw new Error('Count must be a whole number from 2 to 60.');
+          state.count = count;
+          $('count').value = count;
+          $('countValue').textContent = count;
+        }
+        if (input.mode !== undefined) {
+          if (!['colors', 'gradients', 'albums'].includes(input.mode)) throw new Error('Mode must be colors, gradients, or albums.');
+          state.mode = input.mode;
+          if (state.mode === 'albums' && input.count === undefined) {
+            state.count = 60;
+            $('count').value = 60;
+            $('countValue').textContent = 60;
+          }
+          document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === state.mode)));
+        }
+        if (input.frame !== undefined) {
+          if (!['none', 'frost', 'smoke'].includes(input.frame)) throw new Error('Frame must be none, frost, or smoke.');
+          state.frame = input.frame;
+          document.querySelectorAll('[data-frame]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.frame === state.frame)));
+        }
+        if (input.motion !== undefined) {
+          if (typeof input.motion !== 'boolean') throw new Error('Motion must be true or false.');
+          state.motion = input.motion;
+          $('motionToggle').setAttribute('aria-checked', String(state.motion));
+          $('motionStatus').textContent = state.motion ? 'Motion is on' : 'Motion is off';
+        }
+        updateFrame();
+        renderGrid({ wave: input.mode !== undefined, refreshBleed: input.mode !== undefined && state.mode === 'albums' });
+        return { count: state.count, mode: state.mode, frame: state.frame, motion: state.motion };
+      }
+
+      const context = document.modelContext;
+      if (context?.registerTool) {
+        try {
+          void Promise.resolve(context.registerTool({
+            name: 'configure_tilewall',
+            title: 'Configure tile wall',
+            description: 'Change the visible tile count, color, gradient, or album fill, glass frame style, and gentle flip motion in the Tilewall preview.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                count: { type: 'integer', minimum: 2, maximum: 60 },
+                mode: { type: 'string', enum: ['colors', 'gradients', 'albums'] },
+                frame: { type: 'string', enum: ['none', 'frost', 'smoke'] },
+                motion: { type: 'boolean' }
+              },
+              additionalProperties: false
+            },
+            annotations: { readOnlyHint: false, untrustedContentHint: false },
+            execute: applySettings
+          })).catch(() => {});
+        } catch (_) {}
+      }
+
+      state.colors = shuffledColors(state.count);
+      renderGrid({ wave: true });
+      updateFrame();
+    })();
+  </script>
+</body>
+</html>
