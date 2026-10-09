@@ -274,7 +274,8 @@
     .action.primary { background: var(--accent); color: var(--accent-ink); }
     .action.primary:hover { filter: brightness(1.14); }
 
-    .album-tools { margin-top: 11px; }
+    .album-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 11px; }
+    .album-tools[hidden] { display: none; }
     .album-tools .action { width: 100%; background: color-mix(in srgb, var(--accent) 24%, #242429); }
 
     dialog {
@@ -344,6 +345,18 @@
     .manual-form input { min-width: 0; min-height: 42px; padding: 0 12px; border: 1px solid #45444b; border-radius: 10px; color: var(--ink); background: rgba(10,10,13,.72); }
     .manual-form input[type="file"] { grid-column: 1 / -1; padding: 9px 12px; }
     .manual-form .action { grid-column: 1 / -1; }
+    .retry-note { margin: -3px 2px 12px; color: #77767d; font-size: .7rem; }
+    .selected-shelf { display: flex; gap: 6px; min-height: 42px; margin-top: 14px; padding: 8px; overflow-x: auto; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; background: rgba(5,5,8,.34); }
+    .selected-shelf:empty::before { content: "Selected albums will appear here"; align-self: center; padding: 0 5px; color: #68676e; font-size: .74rem; }
+    .selected-mini { position: relative; flex: 0 0 38px; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: #24242a; cursor: pointer; }
+    .selected-mini img { width: 100%; height: 100%; object-fit: cover; }
+    .selected-mini span { position: absolute; right: 2px; bottom: 2px; display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 999px; color: #111; background: rgba(255,255,255,.92); font-size: .58rem; font-weight: 850; }
+    .spotify-shell { width: min(560px, calc(100vw - 28px)); }
+    .spotify-form { display: grid; gap: 12px; margin-top: 22px; }
+    .spotify-form label { display: grid; gap: 6px; color: var(--muted); font-size: .82rem; }
+    .spotify-form input, .spotify-form select { min-height: 45px; padding: 0 13px; border: 1px solid #45444b; border-radius: 11px; color: var(--ink); background: rgba(10,10,13,.82); }
+    .redirect-box { padding: 11px 12px; overflow-wrap: anywhere; border-radius: 11px; color: #c8c5cc; background: rgba(255,255,255,.06); font: .72rem/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .spotify-note { margin: 0; color: #85848b; font-size: .75rem; }
 
     .workspace {
       min-height: 100vh;
@@ -562,6 +575,7 @@
       .picker-count { grid-column: 1 / -1; }
       .manual-form { grid-template-columns: 1fr; }
       .manual-form input, .manual-form input[type="file"], .manual-form .action { grid-column: 1; }
+      .album-tools { grid-template-columns: 1fr; }
       .preview-toolbar { align-items: flex-start; }
       .screen-shell { border-radius: 20px; padding: 8px; }
       .screen { border-radius: 13px; }
@@ -589,7 +603,10 @@
           <button type="button" data-mode="albums" aria-pressed="false">Albums</button>
         </div>
         <p class="source-note" id="fillNote" hidden><span id="albumSource">Current chart test set.</span></p>
-        <div class="album-tools" id="albumTools" hidden><button class="action" id="chooseAlbums" type="button">Choose your albums</button></div>
+        <div class="album-tools" id="albumTools" hidden>
+          <button class="action" id="chooseAlbums" type="button">Choose your albums</button>
+          <button class="action" id="connectSpotify" type="button">Connect Spotify</button>
+        </div>
       </section>
 
       <section class="question" aria-labelledby="count-title">
@@ -636,6 +653,7 @@
       <div class="actions">
         <button class="action" id="shuffle" type="button">Shuffle colors</button>
         <button class="action primary" id="fullscreen" type="button">View full screen</button>
+        <button class="action" id="savePhone" type="button" style="grid-column:1 / -1">Save phone wallpaper</button>
       </div>
     </section>
 
@@ -671,6 +689,7 @@
         <button class="action" type="submit">Find artist</button>
       </form>
       <p class="search-status" id="albumSearchStatus">Your first four choices become Corner 1–4, clockwise.</p>
+      <p class="retry-note">* If search says unavailable, wait a moment and search again.</p>
       <div class="album-results" id="albumResults" aria-live="polite"></div>
       <details class="manual-cover">
         <summary>Can’t find an album? Add your own cover</summary>
@@ -681,12 +700,41 @@
           <button class="action" type="submit">Add this album</button>
         </form>
       </details>
+      <div class="selected-shelf" id="selectedShelf" aria-label="Selected albums"></div>
       <div class="picker-foot">
         <span class="picker-count" id="albumSelectionCount">0 selected</span>
         <button class="action" id="resetChart" type="button">Use chart test</button>
         <button class="action primary" id="applyAlbums" type="button" disabled>Use selected</button>
       </div>
       <p class="picker-credit">Search metadata by <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · artwork from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a></p>
+    </div>
+  </dialog>
+
+  <dialog id="spotifyDialog" aria-labelledby="spotifyDialogTitle">
+    <div class="picker-shell spotify-shell">
+      <div class="picker-head">
+        <div>
+          <h2 id="spotifyDialogTitle">Connect Spotify</h2>
+          <p>Import unique albums from your top tracks, then disconnect automatically.</p>
+        </div>
+        <button class="dialog-close" id="closeSpotifyDialog" type="button" aria-label="Close">×</button>
+      </div>
+      <form class="spotify-form" id="spotifyForm">
+        <label>Spotify Client ID
+          <input id="spotifyClientId" type="text" autocomplete="off" placeholder="Paste your Client ID" required>
+        </label>
+        <label>Listening period
+          <select id="spotifyRange">
+            <option value="long_term">About one year</option>
+            <option value="medium_term">About six months</option>
+            <option value="short_term">About four weeks</option>
+          </select>
+        </label>
+        <p class="spotify-note">Add this exact Redirect URI to your Spotify app:</p>
+        <div class="redirect-box" id="spotifyRedirect"></div>
+        <button class="action primary" type="submit">Continue to Spotify</button>
+        <p class="spotify-note">Development Mode supports up to five allowlisted Spotify users. Never paste a Client Secret here.</p>
+      </form>
     </div>
   </dialog>
 
@@ -1094,6 +1142,26 @@
       function updateDraftCount() {
         $('albumSelectionCount').textContent = `${draftAlbums.length} selected`;
         $('applyAlbums').disabled = draftAlbums.length < 4;
+        const shelf = $('selectedShelf');
+        shelf.replaceChildren();
+        draftAlbums.forEach((album, index) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'selected-mini';
+          button.title = `Remove ${album.title}`;
+          const image = new Image();
+          image.src = album.thumb || album.art;
+          image.alt = album.title;
+          const badge = document.createElement('span');
+          badge.textContent = index < 4 ? `C${index + 1}` : `${index + 1}`;
+          button.append(image, badge);
+          button.addEventListener('click', () => {
+            draftAlbums.splice(index, 1);
+            renderAlbumResults();
+            updateDraftCount();
+          });
+          shelf.append(button);
+        });
       }
 
       function renderAlbumResults() {
@@ -1109,7 +1177,7 @@
           if (selectedIndex >= 0) card.dataset.pick = selectedIndex < 4 ? `Corner ${selectedIndex + 1}` : `${selectedIndex + 1}`;
           const image = new Image();
           image.crossOrigin = 'anonymous';
-          image.src = album.art;
+          image.src = album.thumb || album.art;
           image.alt = '';
           image.addEventListener('error', () => card.remove(), { once: true });
           const title = document.createElement('strong');
@@ -1164,6 +1232,7 @@
               artist: artist.name,
               year: group['first-release-date']?.slice(0, 4) || group['primary-type'],
               art: `https://coverartarchive.org/release-group/${group.id}/front-500`,
+              thumb: `https://coverartarchive.org/release-group/${group.id}/front-250`,
               source: `https://musicbrainz.org/release-group/${group.id}`
             }))
             .filter((album) => album.id && album.title && !seen.has(album.id) && seen.add(album.id))
@@ -1254,6 +1323,184 @@
           $('albumSearchStatus').textContent = `${album.title} was added. ${draftAlbums.length < 4 ? `${4 - draftAlbums.length} more needed.` : 'Ready to use.'}`;
         } catch (_) {
           $('albumSearchStatus').textContent = 'That image could not be prepared. Try a JPG, PNG, or WebP file.';
+        }
+      });
+
+      function spotifyRedirectUri() {
+        return `${location.origin}${location.pathname}`;
+      }
+
+      function base64Url(bytes) {
+        return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+      }
+
+      async function spotifyChallenge(verifier) {
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+        return base64Url(new Uint8Array(digest));
+      }
+
+      $('connectSpotify').addEventListener('click', () => {
+        $('spotifyClientId').value = localStorage.getItem('cornerstone-spotify-client-id') || '';
+        $('spotifyRedirect').textContent = spotifyRedirectUri();
+        $('spotifyDialog').showModal();
+      });
+
+      $('closeSpotifyDialog').addEventListener('click', () => $('spotifyDialog').close());
+
+      $('spotifyForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const clientId = $('spotifyClientId').value.trim();
+        if (!clientId) return;
+        const verifier = base64Url(crypto.getRandomValues(new Uint8Array(64)));
+        const authState = base64Url(crypto.getRandomValues(new Uint8Array(18)));
+        const redirectUri = spotifyRedirectUri();
+        localStorage.setItem('cornerstone-spotify-client-id', clientId);
+        localStorage.setItem('cornerstone-spotify-verifier', verifier);
+        localStorage.setItem('cornerstone-spotify-state', authState);
+        localStorage.setItem('cornerstone-spotify-range', $('spotifyRange').value);
+        localStorage.setItem('cornerstone-spotify-redirect', redirectUri);
+        const auth = new URL('https://accounts.spotify.com/authorize');
+        auth.search = new URLSearchParams({
+          client_id: clientId,
+          response_type: 'code',
+          redirect_uri: redirectUri,
+          scope: 'user-top-read',
+          state: authState,
+          code_challenge_method: 'S256',
+          code_challenge: await spotifyChallenge(verifier)
+        });
+        location.href = auth.toString();
+      });
+
+      async function finishSpotifyImport() {
+        const params = new URLSearchParams(location.search);
+        const code = params.get('code');
+        const returnedState = params.get('state');
+        const error = params.get('error');
+        if (!code && !error) return;
+        const cleanUrl = new URL(location.href);
+        ['code', 'state', 'error'].forEach((key) => cleanUrl.searchParams.delete(key));
+        history.replaceState({}, '', cleanUrl);
+        if (error) {
+          $('screenLabel').textContent = 'Spotify connection was cancelled';
+          return;
+        }
+        const verifier = localStorage.getItem('cornerstone-spotify-verifier');
+        const expectedState = localStorage.getItem('cornerstone-spotify-state');
+        const clientId = localStorage.getItem('cornerstone-spotify-client-id');
+        const redirectUri = localStorage.getItem('cornerstone-spotify-redirect') || spotifyRedirectUri();
+        if (!verifier || !clientId || returnedState !== expectedState) {
+          $('screenLabel').textContent = 'Spotify connection could not be verified';
+          return;
+        }
+        $('screenLabel').textContent = 'Importing your Spotify albums…';
+        try {
+          const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ client_id: clientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: verifier })
+          });
+          if (!tokenResponse.ok) throw new Error('Spotify token unavailable');
+          const token = await tokenResponse.json();
+          const range = localStorage.getItem('cornerstone-spotify-range') || 'long_term';
+          const topResponse = await fetch(`https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=${range}`, { headers: { Authorization: `Bearer ${token.access_token}` } });
+          if (!topResponse.ok) throw new Error('Spotify top tracks unavailable');
+          const payload = await topResponse.json();
+          const seen = new Set();
+          const albums = (payload.items || []).map((entry) => entry.item || entry).map((track) => track.album).filter(Boolean).filter((album) => !seen.has(album.id) && seen.add(album.id)).map((album) => {
+            const images = album.images || [];
+            const art = images.find((image) => image.width >= 500)?.url || images[0]?.url;
+            const thumb = images.find((image) => image.width >= 250 && image.width < 500)?.url || art;
+            return { id: `spotify-${album.id}`, title: album.name, artist: (album.artists || []).map((artist) => artist.name).join(' & '), year: album.release_date?.slice(0, 4), art, thumb, source: 'spotify' };
+          }).filter((album) => album.art).slice(0, 60);
+          if (albums.length < 4) throw new Error('Not enough unique albums were returned');
+          state.albums = albums;
+          state.customAlbums = true;
+          state.mode = 'albums';
+          localStorage.setItem('cornerstone-albums', JSON.stringify(albums));
+          document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === 'albums')));
+          renderGrid({ wave: true, refreshBleed: true });
+          $('screenLabel').textContent = `${albums.length} Spotify albums imported · four cornerstones`;
+        } catch (importError) {
+          $('screenLabel').textContent = importError.message || 'Spotify import failed';
+        } finally {
+          ['cornerstone-spotify-verifier', 'cornerstone-spotify-state', 'cornerstone-spotify-redirect'].forEach((key) => localStorage.removeItem(key));
+        }
+      }
+
+      function exportShape(aspect, available) {
+        const targets = [8, 12, 24, 40, 60];
+        const target = Math.min(targets[state.detail - 1], available);
+        let best = null;
+        for (let rows = 2; rows <= 18; rows++) {
+          for (let columns = 2; columns <= 12; columns++) {
+            const count = rows * columns;
+            if (count < 4 || count > available) continue;
+            const score = Math.abs(Math.log((columns / rows) / aspect)) * 1.8 + Math.abs(count - target) / target;
+            if (!best || score < best.score) best = { columns, rows, count, score };
+          }
+        }
+        return best || { columns: 2, rows: 2, count: 4 };
+      }
+
+      function exportImage(source) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.crossOrigin = 'anonymous';
+          image.onload = () => resolve(image);
+          image.onerror = reject;
+          image.src = source;
+        });
+      }
+
+      function drawCover(context, image, x, y, width, height) {
+        const imageAspect = image.naturalWidth / image.naturalHeight;
+        const targetAspect = width / height;
+        let sx = 0, sy = 0, sw = image.naturalWidth, sh = image.naturalHeight;
+        if (imageAspect > targetAspect) { sw = image.naturalHeight * targetAspect; sx = (image.naturalWidth - sw) / 2; }
+        else { sh = image.naturalWidth / targetAspect; sy = (image.naturalHeight - sh) / 2; }
+        context.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+      }
+
+      $('savePhone').addEventListener('click', async () => {
+        const button = $('savePhone');
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Building wallpaper…';
+        try {
+          const width = 1290, height = 2796;
+          const frame = state.frame === 'none' ? 0 : Math.round(width * state.frameInches * .035);
+          const innerWidth = width - frame * 2, innerHeight = height - frame * 2;
+          const available = state.mode === 'albums' ? state.albums.length : 60;
+          const shape = exportShape(innerWidth / innerHeight, available);
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          const context = canvas.getContext('2d');
+          context.fillStyle = state.frame === 'smoke' ? '#17171c' : '#e8e5df';
+          context.fillRect(0, 0, width, height);
+          const cellWidth = innerWidth / shape.columns, cellHeight = innerHeight / shape.rows;
+          if (state.mode === 'albums') {
+            const arranged = arrangeWithCornerstones(state.albums, shape.count, shape.columns);
+            const images = await Promise.all(arranged.map((album) => exportImage(album.art)));
+            images.forEach((image, index) => drawCover(context, image, frame + (index % shape.columns) * cellWidth, frame + Math.floor(index / shape.columns) * cellHeight, cellWidth + .5, cellHeight + .5));
+          } else {
+            const colors = state.colors.slice();
+            while (colors.length < shape.count) colors.push(palette[Math.floor(Math.random() * palette.length)]);
+            const arranged = arrangeWithCornerstones(colors, shape.count, shape.columns);
+            arranged.forEach((color, index) => { context.fillStyle = color; context.fillRect(frame + (index % shape.columns) * cellWidth, frame + Math.floor(index / shape.columns) * cellHeight, cellWidth + .5, cellHeight + .5); });
+          }
+          const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+          if (!blob) throw new Error('Wallpaper could not be created');
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `cornerstone-phone-${Date.now()}.png`;
+          link.click();
+          window.setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+        } catch (_) {
+          alert('One of these covers could not be exported. Try another album set or use manually uploaded artwork.');
+        } finally {
+          button.disabled = false;
+          button.textContent = original;
         }
       });
 
@@ -1368,6 +1615,7 @@
       state.colors = shuffledColors(state.count);
       renderGrid({ wave: true });
       updateFrame();
+      void finishSpotifyImport();
     })();
   </script>
 </body>
