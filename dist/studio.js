@@ -3,6 +3,34 @@
   const A=window.CornerstoneApp, C=window.CornerstoneCore, $=id=>document.getElementById(id);
   const root=$('onboardingRoot'), cornerMap=[0,1,3,2], labels=['Top left','Top right','Bottom left','Bottom right'];
   const outerFrame=$('outerWebsiteFrame');
+  const appearanceDock=$('appearanceDock'),themeToggle=$('themeToggle'),appearanceToggle=$('appearanceToggle'),appearancePopover=$('appearancePopover'),intensitySlider=$('outerIntensity'),intensityValue=$('outerIntensityValue');
+  const setting=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch(_){return fallback;}};
+  const remember=(key,value)=>{try{localStorage.setItem(key,String(value));}catch(_){}};
+  function setTheme(theme){
+    const day=theme==='day';
+    if(day)document.documentElement.dataset.theme='day';else delete document.documentElement.dataset.theme;
+    themeToggle.querySelector('span').textContent=day?'☾':'☀';
+    themeToggle.setAttribute('aria-label',`Switch to ${day?'night':'day'} mode`);
+    themeToggle.title=`Switch to ${day?'night':'day'} mode`;
+    themeToggle.setAttribute('aria-pressed',String(day));
+    document.querySelector('meta[name="theme-color"]').content=day?'#e9ecec':'#0b0b0d';
+    remember('cornerstone-theme',day?'day':'night');
+  }
+  function setIntensity(value){
+    const intensity=Math.max(0,Math.min(100,Number(value)||0));
+    intensitySlider.value=String(intensity);
+    intensityValue.textContent=`${intensity}%`;
+    outerFrame.style.setProperty('--outer-intensity',`${intensity}%`);
+    remember('cornerstone-outer-intensity',intensity);
+  }
+  function closeAppearance(){appearancePopover.hidden=true;appearanceToggle.setAttribute('aria-expanded','false');}
+  setTheme(document.documentElement.dataset.theme==='day'?'day':'night');
+  setIntensity(setting('cornerstone-outer-intensity','75'));
+  themeToggle.addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='day'?'night':'day'));
+  appearanceToggle.addEventListener('click',()=>{const open=appearancePopover.hidden;appearancePopover.hidden=!open;appearanceToggle.setAttribute('aria-expanded',String(open));});
+  intensitySlider.addEventListener('input',event=>setIntensity(event.target.value));
+  document.addEventListener('pointerdown',event=>{if(!appearanceDock.contains(event.target))closeAppearance();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!appearancePopover.hidden){closeAppearance();appearanceToggle.focus();}});
   let outerRevision=0;
   function updateOuterFrame(items=[]){
     const revision=++outerRevision, chosen=items.slice(0,4);
@@ -15,7 +43,7 @@
       if(album&&!album.color)void C.analyze(album).then(color=>{if(revision===outerRevision)paint(color);});
     }
   }
-  document.addEventListener('fullscreenchange',()=>{outerFrame.hidden=!!document.fullscreenElement;});
+  document.addEventListener('fullscreenchange',()=>{const full=!!document.fullscreenElement;outerFrame.hidden=full;appearanceDock.hidden=full;if(full)closeAppearance();});
   let currentStep='landing', hasProject=false, ready=false, draft=null, importData=null, dismissed=new Set(), saveTimer, saveQueue=Promise.resolve(), gradientRevision=0, toastTimer;
   let activeDraft=false;
   root.innerHTML='<div class="arrival"><div class="arrival-backdrop" aria-hidden="true"></div><section class="stage landing" id="stage" aria-label="Create your Cornerstone wall"></section></div>';

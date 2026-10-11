@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#0b0b0d">
   <meta name="description" content="Turn favorite albums or colors into a living wall anchored by four permanent cornerstones.">
   <title>Cornerstone</title>
+  <script>
+    try { if (localStorage.getItem('cornerstone-theme') === 'day') document.documentElement.dataset.theme = 'day'; } catch (_) {}
+  </script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0b0d'/%3E%3Cpath d='M5 5h10v10H5zm12 0h10v10H17zM5 17h10v10H5z' fill='%23fb4b68'/%3E%3Cpath d='M17 17h10v10H17z' fill='%235fe0c1'/%3E%3C/svg%3E">
   <style>
     :root {
@@ -589,6 +592,15 @@
 </head>
 <body class="onboarding">
   <div id="outerWebsiteFrame" class="outer-website-frame" aria-hidden="true"></div>
+  <div class="appearance-dock" id="appearanceDock" aria-label="Website appearance">
+    <button class="appearance-icon" id="themeToggle" type="button" aria-label="Switch to day mode" aria-pressed="false" title="Switch to day mode"><span aria-hidden="true">☀</span></button>
+    <button class="appearance-icon" id="appearanceToggle" type="button" aria-label="Outer-frame appearance settings" aria-expanded="false" aria-controls="appearancePopover" title="Outer-frame appearance settings"><span aria-hidden="true">◐</span></button>
+    <div class="appearance-popover" id="appearancePopover" role="region" aria-label="Outer-frame appearance settings" hidden>
+      <div class="appearance-heading"><label for="outerIntensity">Outer-frame color intensity</label><output id="outerIntensityValue" for="outerIntensity">75%</output></div>
+      <input id="outerIntensity" type="range" min="0" max="100" step="1" value="75" aria-describedby="outerIntensityHelp">
+      <p id="outerIntensityHelp">Only the website frame changes. Your wallpaper frame stays separate.</p>
+    </div>
+  </div>
   <div id="onboardingRoot"></div>
   <noscript>Cornerstone needs JavaScript to create your wall.</noscript>
   <main class="app">
