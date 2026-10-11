@@ -8,8 +8,19 @@ document.getElementById('run').onclick=async()=>{
  try{
  let w=frame.contentWindow,d=w.document,A=w.CornerstoneApp,S=w.CornerstoneStudio,C=w.CornerstoneCore;
  assert(!!S,'Application and studio boot');
- const all=covers();A.setAlbums(all.slice(0,60));S.enterEditor();A.state.motion=false;A.applySettings({motion:false});
- for(const mode of ['original','color','gradient','alternating','random']){A.state.arrangement=mode;A.renderGrid();assert(d.querySelectorAll('#grid .tile').length===60,mode+' renders 60 tiles');const pinned=[...d.querySelectorAll('#grid .cornerstone img')].map(im=>im.alt);assert(all.slice(0,4).every(a=>pinned.includes(a.title+' — '+a.artist)||pinned.includes(a.title)),mode+' retains cornerstone covers');}
+ const all=covers(),outer=d.getElementById('outerWebsiteFrame');
+ assert(!!outer&&!outer.style.getPropertyValue('--outer-corner-1')&&!outer.dataset.activeCorners,'Opening website frame starts neutral');
+ S.draftChanged(all.slice(0,1));
+ assert(outer.dataset.activeCorners==='1'&&outer.style.getPropertyValue('--outer-corner-1')!=='transparent'&&[2,3,4].every(i=>outer.style.getPropertyValue(`--outer-corner-${i}`)==='transparent'),'First album colors only top left');
+ S.draftChanged(all.slice(0,4));
+ assert(outer.dataset.activeCorners==='4'&&[1,2,3,4].every(i=>outer.style.getPropertyValue(`--outer-corner-${i}`)!=='transparent'),'Four albums color all corners');
+ await pause(900);
+ assert(getComputedStyle(outer,'::before').backgroundImage.includes(`rgba(${all[3].color.join(', ')}, 0.92)`),'Selected colors appear in the visible frame gradient');
+ const previous=outer.style.getPropertyValue('--outer-corner-3');
+ S.draftChanged([all[0],all[1],all[12],all[3]]);
+ assert(outer.style.getPropertyValue('--outer-corner-3')!==previous&&outer.style.getPropertyValue('--outer-corner-2')===`rgba(${all[1].color.join(',')},.92)`,'Replacing a cornerstone updates its assigned color');
+ A.setAlbums(all.slice(0,60));S.enterEditor();A.state.motion=false;A.applySettings({motion:false});
+ for(const mode of ['original','color','gradient','alternating','random']){A.state.arrangement=mode;A.renderGrid();assert(d.querySelectorAll('#grid .tile').length===60,mode+' renders 60 tiles');const pinned=[...d.querySelectorAll('#grid .cornerstone img')].map(im=>im.alt);assert(all.slice(0,4).every(a=>pinned.includes(`${a.title} by ${a.artist}`)),mode+' retains cornerstone covers');}
  const oldClick=w.HTMLAnchorElement.prototype.click,downloads=[];w.HTMLAnchorElement.prototype.click=function(){downloads.push({url:this.href,name:this.download});};
  for(const [label,width,height]of [['phone',1290,2796],['desktop',3840,2160]]){await A.saveWallpaper(d.getElementById(label==='phone'?'savePhone':'saveDesktop'),width,height,label);const saved=downloads.at(-1);assert(saved?.name.includes(label),label+' PNG generated');const blob=await(await fetch(saved.url)).blob(),bitmap=await createImageBitmap(blob);assert(bitmap.width===width&&bitmap.height===height,label+' exact pixel dimensions');const testCanvas=document.createElement('canvas');testCanvas.width=width;testCanvas.height=height;const ctx=testCanvas.getContext('2d');ctx.drawImage(bitmap,0,0);assert(ctx.getImageData(width/2,height/2,1,1).data[3]===255,label+' has no transparent center');bitmap.close();}
  w.HTMLAnchorElement.prototype.click=oldClick;
@@ -18,7 +29,7 @@ document.getElementById('run').onclick=async()=>{
  d.querySelector('.suggestion-actions button').click();assert(A.state.albums.length===46,'Individual acceptance preserves imported albums');
  d.getElementById('acceptAll').click();assert(A.state.albums.length===60,'Accept all completes exactly 60');assert(C.unique(A.state.albums).length===60,'Completion has no duplicate albums');
  d.getElementById('useCollection').click();await S.save();const stored=await C.get('project');assert(stored.state.albums.length===60&&stored.state.albums[0].art.startsWith('data:'),'IndexedDB retains uploaded artwork');
- await new Promise(resolve=>{frame.onload=resolve;frame.src='/?qa-reload=1';});await pause(250);w=frame.contentWindow;d=w.document;assert(!!d.getElementById('resumeProject'),'Returning visitor offered saved project');d.getElementById('resumeProject').click();assert(!d.body.classList.contains('onboarding'),'Returning completed collection opens editor');assert(w.CornerstoneApp.state.albums.length===60,'Reload keeps collection');
+ await new Promise(resolve=>{frame.onload=resolve;frame.src='/?qa-reload=1';});await pause(250);w=frame.contentWindow;d=w.document;assert(!!d.getElementById('resumeProject'),'Returning visitor offered saved project');assert(!d.getElementById('outerWebsiteFrame').style.getPropertyValue('--outer-corner-1'),'Saved colors remain neutral before resume');d.getElementById('resumeProject').click();assert(!d.body.classList.contains('onboarding'),'Returning completed collection opens editor');assert(w.CornerstoneApp.state.albums.length===60,'Reload keeps collection');assert(d.getElementById('outerWebsiteFrame').dataset.activeCorners==='4','Resume restores four frame colors');
  assert(!d.documentElement.scrollWidth||d.documentElement.scrollWidth<=d.documentElement.clientWidth+1,'No horizontal overflow');
  log('ALL INTEGRATED CHECKS PASSED');
  }catch(e){log('FAIL '+e.message);console.error(e);}

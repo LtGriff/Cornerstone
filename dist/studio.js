@@ -2,6 +2,20 @@
   'use strict';
   const A=window.CornerstoneApp, C=window.CornerstoneCore, $=id=>document.getElementById(id);
   const root=$('onboardingRoot'), cornerMap=[0,1,3,2], labels=['Top left','Top right','Bottom left','Bottom right'];
+  const outerFrame=$('outerWebsiteFrame');
+  let outerRevision=0;
+  function updateOuterFrame(items=[]){
+    const revision=++outerRevision, chosen=items.slice(0,4);
+    outerFrame.dataset.activeCorners=String(chosen.filter(Boolean).length);
+    for(let i=0;i<4;i++){
+      const album=chosen[i];
+      const property=`--outer-corner-${i+1}`;
+      const paint=color=>outerFrame.style.setProperty(property,color?`rgba(${color.map(v=>Math.round(v)).join(',')},.92)`:'transparent');
+      paint(Array.isArray(album?.color)?album.color:null);
+      if(album&&!album.color)void C.analyze(album).then(color=>{if(revision===outerRevision)paint(color);});
+    }
+  }
+  document.addEventListener('fullscreenchange',()=>{outerFrame.hidden=!!document.fullscreenElement;});
   let currentStep='landing', hasProject=false, ready=false, draft=null, importData=null, dismissed=new Set(), saveTimer, saveQueue=Promise.resolve(), gradientRevision=0, toastTimer;
   let activeDraft=false;
   root.innerHTML='<div class="arrival"><div class="arrival-backdrop" aria-hidden="true"></div><section class="stage landing" id="stage" aria-label="Create your Cornerstone wall"></section></div>';
@@ -16,7 +30,7 @@
     stage.addEventListener('keydown',e=>{if(e.key==='Escape')stage.querySelectorAll('.info-wrap.open').forEach(el=>el.classList.remove('open'));},{once:true});
   }
   const info=(id,text)=>`<span class="info-wrap"><button class="info-button" type="button" aria-label="More information" aria-expanded="false" aria-describedby="${id}">i</button><span class="info-tooltip" id="${id}" role="tooltip">${text}</span></span>`;
-  function landing(){currentStep='landing';show(`<button class="glass-pill start-pill" id="startCreating">Start creating <span aria-hidden="true">→</span></button>${hasProject?'<div class="return-note"><button class="quiet-button" id="resumeProject">Continue my saved wall ↗</button></div>':''}`,'landing');bind('startCreating',example);bind('resumeProject',resume);}
+  function landing(){currentStep='landing';show(`<button class="glass-pill start-pill" id="startCreating">Start creating <span aria-hidden="true">→</span></button>${hasProject?'<div class="return-note"><button class="quiet-button" id="resumeProject">Resume my project ↗</button></div>':''}`,'landing');bind('startCreating',example);bind('resumeProject',resume);}
   function example(){
     currentStep='example';setGradient([[141,149,94],[143,134,183],[49,110,134],[186,116,87]]);
     show(`<p class="eyebrow">Cornerstone · a little inspiration</p><h1 tabindex="-1">Tre’s Picks</h1><p class="subtitle">A personal music wallpaper.</p>
@@ -40,7 +54,7 @@
   }
   function hex(v){return (v.match(/[a-f\d]{2}/gi)||['80','80','80']).map(x=>parseInt(x,16));}
   function setGradient(colors){['w','x','y','z'].forEach((key,i)=>document.documentElement.style.setProperty('--corner-'+key,colors[i]?`rgb(${colors[i].join(',')})`:'#424550'));}
-  async function gradient(items){const rev=++gradientRevision;const colors=await Promise.all(cornerMap.map(i=>items[i]?C.analyze(items[i]):null));if(rev===gradientRevision)setGradient(colors);}
+  async function gradient(items){updateOuterFrame(items);const rev=++gradientRevision;const colors=await Promise.all(cornerMap.map(i=>items[i]?C.analyze(items[i]):null));if(rev===gradientRevision)setGradient(colors);}
   function pick(items){currentStep='picker';activeDraft=true;draft=items.slice();show(`<p class="eyebrow">Made of your favorites</p><h2 tabindex="-1">Build your collection.</h2><p class="subtitle">Choose four cornerstones, then add more albums. Your choices stay on this device.</p><button class="glass-pill" id="reopenPicker">Choose albums →</button><button class="quiet-button" id="pickerBack">← Back</button>`);bind('reopenPicker',()=>A.openPicker(draft));bind('pickerBack',modes);A.openPicker(draft);}
   // Reuse the working picker, with four explicit replacement targets above its search.
   const guide=document.createElement('div');guide.className='corner-guide';guide.innerHTML='<h3 id="guideTitle">Choose your four cornerstones</h3><p id="guideCopy">Start with the albums that define your wall.</p><div class="corner-slots" id="cornerSlots"></div>';
@@ -64,13 +78,13 @@
     $('useCollection').disabled=count<4;bind('acceptAll',()=>accept(suggestions));bind('manualCompletion',()=>pick(A.state.albums));bind('useCollection',()=>{activeDraft=false;draft=A.state.albums.slice();enterEditor();});void save();
   }
   function accept(items){A.state.albums=C.unique(A.state.albums.concat(items));draft=A.state.albums.slice();activeDraft=false;void gradient(draft);recommendationScreen();}
-  function resume(){if(activeDraft&&draft?.length){pick(draft);return;}if(importData&&currentStep!=='editor'&&!importData.completed&&A.state.albums.length<60){recommendationScreen();return;}enterEditor();}
+  function resume(){updateOuterFrame(activeDraft&&draft?.length?draft:A.state.mode==='albums'?A.state.albums:[]);if(activeDraft&&draft?.length){pick(draft);return;}if(importData&&currentStep!=='editor'&&!importData.completed&&A.state.albums.length<60){recommendationScreen();return;}enterEditor();}
   function enterEditor(){
     if(importData)importData.completed=true;
     currentStep='editor';activeDraft=false;document.body.classList.remove('onboarding');document.querySelector('.app').inert=false;hasProject=true;
     $('detail').value=A.state.detail;$('frameSize').value=A.state.frameInches;$('speed').value=A.state.speed;
     A.applySettings({mode:A.state.mode,detail:A.state.detail,frame:A.state.frame,motion:A.state.motion});
-    $('arrangement').value=A.state.arrangement;void gradient(A.state.albums);changed();
+    $('arrangement').value=A.state.arrangement;void gradient(A.state.mode==='albums'?A.state.albums:[]);changed();
     if(A.state.mode==='albums')void analyzeCollection();
   }
   async function analyzeCollection(){const items=A.state.albums;await C.analyzeAll(items);if(A.state.albums!==items)return;if(A.state.arrangement!=='original')A.renderGrid();void save();}
