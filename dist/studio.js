@@ -36,7 +36,7 @@
     const revision=++outerRevision, chosen=items.slice(0,4);
     outerFrame.dataset.activeCorners=String(chosen.filter(Boolean).length);
     for(let i=0;i<4;i++){
-      const album=chosen[i];
+      const album=chosen[cornerMap[i]];
       const property=`--outer-corner-${i+1}`;
       const paint=color=>outerFrame.style.setProperty(property,color?`rgba(${color.map(v=>Math.round(v)).join(',')},.92)`:'transparent');
       paint(Array.isArray(album?.color)?album.color:null);
@@ -86,10 +86,11 @@
   function pick(items){currentStep='picker';activeDraft=true;draft=items.slice();show(`<p class="eyebrow">Made of your favorites</p><h2 tabindex="-1">Build your collection.</h2><p class="subtitle">Choose four cornerstones, then add more albums. Your choices stay on this device.</p><button class="glass-pill" id="reopenPicker">Choose albums →</button><button class="quiet-button" id="pickerBack">← Back</button>`);bind('reopenPicker',()=>A.openPicker(draft));bind('pickerBack',modes);A.openPicker(draft);}
   // Reuse the working picker, with four explicit replacement targets above its search.
   const guide=document.createElement('div');guide.className='corner-guide';guide.innerHTML='<h3 id="guideTitle">Choose your four cornerstones</h3><p id="guideCopy">Start with the albums that define your wall.</p><div class="corner-slots" id="cornerSlots"></div>';
-  $('albumSearchForm').before(guide);
+  // Keep cornerstones outside the scrolling search pane so its heading cannot slide behind the fixed modal header.
+  document.querySelector('#albumDialog .picker-head').after(guide);
   function draftChanged(items){
     draft=items.slice(); activeDraft=true;const slots=$('cornerSlots');slots.replaceChildren();
-    cornerMap.forEach((index,i)=>{const a=items[index],b=document.createElement('button');b.type='button';b.className='corner-slot';b.setAttribute('aria-label',a?`Replace ${labels[i]} cornerstone: ${a.title}`:`Choose ${labels[i]} cornerstone`);if(a){const im=new Image();im.src=a.thumb||a.art;im.alt=a.title;b.append(im);}else b.append(document.createTextNode('+'));const label=document.createElement('span');label.textContent=labels[i];b.append(label);b.onclick=()=>{slots.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));A.targetCorner(index);};slots.append(b);});
+    cornerMap.forEach((index,i)=>{const a=items[index],b=document.createElement('button');b.type='button';b.className='corner-slot';b.dataset.cornerPosition=String(i+1);b.dataset.albumIndex=String(index);b.setAttribute('aria-label',a?`Replace cornerstone ${i+1}, ${labels[i]}: ${a.title}`:`Choose cornerstone ${i+1}, ${labels[i]}`);if(a){const im=new Image();im.src=a.thumb||a.art;im.alt=a.title;b.append(im);}else b.append(document.createTextNode('+'));const label=document.createElement('span');label.textContent=`${i+1} · ${labels[i]}`;b.append(label);b.onclick=()=>{slots.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));A.targetCorner(index);};slots.append(b);});
     $('guideTitle').textContent=items.length<4?'Choose your four cornerstones':'Now make it your own';
     $('guideCopy').textContent=items.length<4?`${items.length} of 4 anchors chosen · tap a slot to replace its cover`:`${items.length} / 60 albums · keep adding, or create a smaller wall now`;
     $('applyAlbums').textContent=items.length>=60?'Create my wall →':`Use these ${items.length} albums →`;
