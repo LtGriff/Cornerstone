@@ -698,9 +698,8 @@
       <div class="picker-head">
         <button class="picker-back" id="backAlbumDialog" type="button" aria-label="Back to Cornerstone"><span aria-hidden="true">←</span><span>Back</span></button>
         <div>
-          <p class="picker-kicker">YOUR COLLECTION</p>
           <h2 id="albumDialogTitle" tabindex="-1">Choose your albums</h2>
-          <p>Find the artist first, then choose from their official albums and EPs.</p>
+          <p>Find an artist. Pick the albums that feel like you.</p>
         </div>
         <button class="dialog-close" id="closeAlbumDialog" type="button" aria-label="Close">×</button>
       </div>
@@ -723,8 +722,23 @@
         </details>
       </div>
       <div class="picker-footer">
-        <div class="picker-rack-reserve" aria-label="Collection progress"><span class="picker-rack-preview" aria-hidden="true"></span><span>Collection progress</span><strong id="pickerRackCount">0 / 60</strong></div>
-        <div class="selected-shelf" id="selectedShelf" aria-label="Selected albums"></div>
+        <div class="vinyl-progress" aria-label="Collection progress">
+          <div class="vinyl-rack" id="vinylRack" data-empty="true" aria-hidden="true">
+            <span class="vinyl-rack-shadow"></span>
+            <svg class="vinyl-rack-back" viewBox="0 0 126 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M18 55 35 19h70L119 55M18 55h101M25 61 41 29h59l13 32"/>
+              <path d="M30 54 43 18m3 36 8-36m9 36 2-36m16 36-4-36m20 36-9-36m20 36-14-36"/>
+            </svg>
+            <span class="vinyl-rack-sleeve"><img id="vinylRackCover" alt="" hidden></span>
+            <svg class="vinyl-rack-wires" viewBox="0 0 126 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M18 55 25 65h88l6-10M18 55h101M25 65h88"/>
+              <path d="M25 65 36 48h66l11 17M25 65V71h88v-6M37 48l-2 9m67-9 2 9"/>
+              <path d="M27 71v3m84-3v3"/>
+            </svg>
+          </div>
+          <div class="vinyl-progress-copy"><strong id="vinylRackTitle">An empty rack, for now</strong><span id="pickerRackCount" role="status" aria-live="polite" aria-atomic="true">0 / 60 albums</span></div>
+        </div>
+        <button class="selected-collection" id="selectedCollection" type="button" aria-controls="selectedCollectionView" aria-expanded="false" hidden>View selected albums <span id="selectedCollectionCount">(0)</span> <span aria-hidden="true">↗</span></button>
         <div class="picker-foot">
           <span class="picker-count" id="albumSelectionCount">0 selected</span>
           <button class="action" id="resetChart" type="button" hidden>Use chart test</button>
@@ -732,6 +746,10 @@
         </div>
         <p class="picker-credit">Search metadata by <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · artwork from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a></p>
       </div>
+      <section class="selected-collection-view" id="selectedCollectionView" aria-labelledby="selectedCollectionTitle" hidden>
+        <div class="selected-view-head"><button class="selected-view-back" id="selectedCollectionBack" type="button">← Back to albums</button><h3 id="selectedCollectionTitle">Your selected albums</h3><p>Tap a cover to remove it. Cornerstones can be replaced in the main view.</p></div>
+        <div class="selected-shelf" id="selectedShelf" aria-label="Selected albums"></div>
+      </section>
     </div>
   </dialog>
 
@@ -812,6 +830,12 @@
       let artistSearchResults = [];
       let draftAlbums = [];
       let draftCornerSlots = [null, null, null, null]; // visible TL, TR, BL, BR; saved albums stay clockwise
+      let rackLatestId = null;
+      let rackFlight = null;
+      let rackFlightAnimation = null;
+      let rackSettleAnimation = null;
+      let rackMotionRevision = 0;
+      let cornerAuraTimer = null;
       let cornerstoneTarget = null;
       let searchController = null;
       let searchSequence = 0;
@@ -1176,6 +1200,87 @@
       });
 
       const sameDraftAlbum = (a, b) => !!a && !!b && C.identity(a) === C.identity(b);
+      const draftSignature = () => `${draftAlbums.map(C.identity).join('|')}::${draftCornerSlots.map(album => album ? C.identity(album) : '').join('|')}`;
+      function cancelRackAnimation() {
+        ++rackMotionRevision;
+        rackFlightAnimation?.cancel(); rackSettleAnimation?.cancel();
+        rackFlight?.remove();
+        rackFlight = rackFlightAnimation = rackSettleAnimation = null;
+        $('vinylRack').classList.remove('is-settling');
+        clearTimeout(cornerAuraTimer);
+        $('cornerSlots')?.querySelectorAll('.is-arriving').forEach(slot => slot.classList.remove('is-arriving'));
+      }
+      function renderRack() {
+        const latest = draftAlbums.find(album => C.identity(album) === rackLatestId) || draftAlbums.at(-1) || null;
+        rackLatestId = latest ? C.identity(latest) : null;
+        const rack = $('vinylRack'), cover = $('vinylRackCover');
+        rack.dataset.empty = String(!latest);
+        rack.dataset.complete = String(draftAlbums.length === 60);
+        const art = latest?.thumb || latest?.art || '';
+        if (cover.getAttribute('src') !== art) { if (art) cover.src = art; else cover.removeAttribute('src'); }
+        cover.hidden = !art;
+        $('vinylRackTitle').textContent = latest ? latest.title : 'An empty rack, for now';
+        $('pickerRackCount').textContent = `${draftAlbums.length} / 60 albums${draftAlbums.length === 60 ? ' · complete' : ''}`;
+        $('selectedCollection').hidden = draftAlbums.length === 0;
+        $('selectedCollectionCount').textContent = `(${draftAlbums.length})`;
+        if (!draftAlbums.length) closeSelectedCollection();
+      }
+      function rackSource(image) {
+        return image?.complete && image.naturalWidth ? { rect:image.getBoundingClientRect(), src:image.currentSrc || image.src } : null;
+      }
+      function animateSelection(source, cornerPosition = null) {
+        cancelRackAnimation();
+        const corner = cornerPosition === null ? null : $('cornerSlots').querySelectorAll('button')[cornerPosition];
+        const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (corner && !reduced) {
+          corner.classList.add('is-arriving');
+          cornerAuraTimer = setTimeout(() => corner.classList.remove('is-arriving'), 460);
+        }
+        if (!source || reduced) return;
+        const dialog = $('albumDialog'), rack = $('vinylRack'), destination = corner?.querySelector('img') || corner || $('vinylRackCover');
+        if (!dialog.open || dialog.classList.contains('is-closing') || destination.hidden) return;
+        const from = source.rect, to = destination.getBoundingClientRect(), bounds = dialog.getBoundingClientRect();
+        if (!from.width || !from.height || !to.width || !to.height) return;
+        try {
+          const flight = document.createElement('img');
+          flight.className = `vinyl-flight${corner ? ' corner-flight' : ''}`; flight.src = source.src; flight.alt = '';
+          flight.style.cssText = `left:${from.left - bounds.left}px;top:${from.top - bounds.top}px;width:${from.width}px;height:${from.height}px`;
+          if (corner) flight.style.setProperty('--flight-glow',corner.style.getPropertyValue('--slot-glow') || '#d8bbed');
+          dialog.append(flight); rackFlight = flight;
+          const revision = rackMotionRevision;
+          const dx = to.left - from.left, dy = to.top - from.top, scale = to.width / from.width;
+          rackFlightAnimation = flight.animate([
+            { transform:'translate(0,0) scale(1)', opacity:1, offset:0 },
+            { transform:'translate(0,-9px) scale(1.03)', opacity:1, offset:.16 },
+            { transform:`translate(${dx}px,${dy - 11}px) scale(${scale})`, opacity:1, offset:.78 },
+            { transform:`translate(${dx}px,${dy}px) scale(${scale * .94})`, opacity:.92, offset:1 }
+          ], { duration:430, easing:'cubic-bezier(.22,.7,.22,1)', fill:'forwards' });
+          rackFlightAnimation.finished.then(() => {
+            if (revision !== rackMotionRevision || !dialog.open) return;
+            flight.remove(); rackFlight = rackFlightAnimation = null;
+            const settling = corner || rack;
+            settling.classList.add('is-settling');
+            rackSettleAnimation = settling.animate([{ transform:'translateY(-2px)' },{ transform:'translateY(1px)' },{ transform:'translateY(0)' }], { duration:85, easing:'ease-out' });
+            rackSettleAnimation.finished.finally(() => { if (revision === rackMotionRevision) { settling.classList.remove('is-settling'); rackSettleAnimation = null; } }).catch(() => {});
+          }).catch(() => { if (revision === rackMotionRevision) cancelRackAnimation(); });
+        } catch (_) { cancelRackAnimation(); }
+      }
+      function closeSelectedCollection() {
+        const view = $('selectedCollectionView');
+        if (view.hidden) return;
+        view.hidden = true;
+        $('selectedCollection').setAttribute('aria-expanded','false');
+        if (!$('selectedCollection').hidden && $('albumDialog').open) $('selectedCollection').focus({preventScroll:true});
+      }
+      $('selectedCollection').addEventListener('click', () => {
+        $('selectedCollectionView').hidden = false;
+        $('selectedCollection').setAttribute('aria-expanded','true');
+        $('selectedCollectionBack').focus({preventScroll:true});
+      });
+      $('selectedCollectionBack').addEventListener('click', closeSelectedCollection);
+      $('albumDialog').addEventListener('cancel', event => {
+        if (!$('selectedCollectionView').hidden) { event.preventDefault(); closeSelectedCollection(); }
+      });
       function syncDraftOrder() {
         const fixed = [draftCornerSlots[0], draftCornerSlots[1], draftCornerSlots[3], draftCornerSlots[2]].filter(Boolean);
         const fixedIds = new Set(fixed.map(C.identity));
@@ -1195,7 +1300,7 @@
       }
       function updateDraftCount() {
         $('albumSelectionCount').textContent = `${draftAlbums.length} / 60 selected`;
-        $('pickerRackCount').textContent = `${draftAlbums.length} / 60`;
+        renderRack();
         $('applyAlbums').disabled = draftCornerSlots.some(choice => !choice);
         window.CornerstoneStudio?.draftChanged(draftAlbums, draftCornerSlots.slice());
         const shelf = $('selectedShelf');
@@ -1217,6 +1322,7 @@
             removeDraftAlbum(album);
             renderAlbumResults();
             updateDraftCount();
+            if (!draftAlbums.length) closeSelectedCollection();
           });
           shelf.append(button);
         });
@@ -1262,12 +1368,16 @@
           artist.textContent = [album.artist, album.year].filter(Boolean).join(' · ');
           card.append(image, title, artist);
           card.addEventListener('click', () => {
+            const before = draftSignature(), source = rackSource(image), cornerPosition = cornerstoneTarget === null ? draftCornerSlots.findIndex(choice => !choice) : cornerstoneTarget;
             const existing = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
             if (cornerstoneTarget !== null) placeCornerstone(album);
             else if (existing >= 0) removeDraftAlbum(album);
             else addDraftAlbum(album);
+            const added = before !== draftSignature() && draftAlbums.some(choice => sameDraftAlbum(choice, album));
+            if (added) rackLatestId = C.identity(album);
             renderAlbumResults();
             updateDraftCount();
+            if (added) animateSelection(source, cornerPosition < 0 ? null : cornerPosition);
           });
           container.append(card);
         });
@@ -1313,6 +1423,8 @@
       }
 
       function openPicker(albums, cornerIndices) {
+        cancelRackAnimation();
+        closeSelectedCollection();
         draftAlbums = C.unique(albums || (state.customAlbums ? state.albums : []));
         draftCornerSlots = C.cornerToStorage.map((index, position) => {
           const savedIndex = Array.isArray(cornerIndices) ? cornerIndices[position] : index;
@@ -1333,6 +1445,8 @@
       let pickerCloseTimer;
       function closePicker(){
         const dialog=$('albumDialog');if(!dialog.open||dialog.classList.contains('is-closing'))return;
+        cancelRackAnimation();
+        closeSelectedCollection();
         if(matchMedia('(prefers-reduced-motion: reduce)').matches){dialog.close();return;}
         dialog.classList.add('is-closing');
         pickerCloseTimer=setTimeout(()=>{dialog.close();dialog.classList.remove('is-closing');},170);
@@ -1367,7 +1481,7 @@
         searchDebounce=setTimeout(searchArtists,550);
       });
       $('albumSearchForm').addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchDebounce);void searchArtists();});
-      $('albumDialog').addEventListener('close',()=>{clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
+      $('albumDialog').addEventListener('close',()=>{cancelRackAnimation();clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
 
       async function manualArtworkData(file) {
         const url = URL.createObjectURL(file);
@@ -1401,11 +1515,15 @@
             year: 'Your artwork',
             art: await manualArtworkData(file)
           };
+          const before = draftSignature(), cornerPosition = cornerstoneTarget === null ? draftCornerSlots.findIndex(choice => !choice) : cornerstoneTarget;
           if(cornerstoneTarget!==null)placeCornerstone(album);else addDraftAlbum(album);
+          const added = before !== draftSignature() && draftAlbums.some(choice => sameDraftAlbum(choice, album));
+          if (added) rackLatestId = C.identity(album);
           albumSearchResults.unshift(album);
           $('albumResults').classList.remove('artist-results');
           renderAlbumResults();
           updateDraftCount();
+          if (added) animateSelection(rackSource($('albumResults').querySelector('.album-card img')), cornerPosition < 0 ? null : cornerPosition);
           event.target.reset();
           $('albumSearchStatus').textContent = `${album.title} was added. ${draftAlbums.length < 4 ? `${4 - draftAlbums.length} more needed.` : 'Ready to use.'}`;
         } catch (_) {
@@ -1681,6 +1799,8 @@
       window.CornerstoneApp = {
         state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount,
         getDraft:()=>draftAlbums,
+        getRackLatestId:()=>rackLatestId,
+        setRackLatestId:id=>{rackLatestId=typeof id==='string'?id:null;},
         setDraft:items=>{draftAlbums=C.unique(items);draftCornerSlots=C.cornerToStorage.map(index=>draftAlbums[index]||null);renderAlbumResults();updateDraftCount();},
         targetCorner:position=>{cornerstoneTarget=position; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
         finishSpotifyImport,
