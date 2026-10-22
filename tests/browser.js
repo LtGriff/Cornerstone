@@ -37,9 +37,30 @@ document.getElementById('run').onclick=async()=>{
  assert(outer.style.getPropertyValue('--outer-corner-4')!==previous&&outer.style.getPropertyValue('--outer-corner-2')===`rgba(${all[1].color.join(',')},.92)`,'Replacing a cornerstone updates its physical corner color');
  const originalArtists=C.artists,originalAlbums=C.albums;
  C.artists=async()=>[{id:'qa-artist',name:'Test Artist'}];
- C.albums=async(_artist,_signal,onPage)=>{onPage(all.slice(60,64));return all.slice(60,64);};
- A.openPicker(all.slice(0,4));
+ C.albums=async(_artist,_signal,onPage)=>{onPage(all.slice(60,66));return all.slice(60,66);};
+ A.openPicker([]);
  const picker=d.getElementById('albumDialog');
+ assert([...d.querySelectorAll('#cornerSlots button img')].length===0&&outer.dataset.activeCorners==='0','Fresh picker begins with four empty physical corners');
+ d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);d.querySelector('#albumResults .artist-choice').click();await pause(15);
+ for(let i=0;i<3;i++){
+  d.querySelectorAll('#albumResults .album-card')[i].click();
+  const slotImages=[...d.querySelectorAll('#cornerSlots button')].map(button=>button.querySelector('img')?.alt||null);
+  assert(slotImages[i]===all[60+i].title&&slotImages.slice(i+1).every(value=>value===null)&&outer.dataset.activeCorners===String(i+1),`Selection ${i+1} fills only its visible physical corner`);
+  assert(outer.style.getPropertyValue(`--outer-corner-${i+1}`)===`rgba(${all[60+i].color.join(',')},.92)`,`Selection ${i+1} colors the matching outer corner`);
+ }
+ await S.save();const partial=await C.get('project');
+ assert(partial.version===3&&partial.draftCornerIndices.join(',')==='0,1,2,-1','Partial visual corner positions persist without changing project version');
+ d.getElementById('closeAlbumDialog').click();await pause(350);A.openPicker(partial.draft,partial.draftCornerIndices);
+ assert(d.querySelectorAll('#cornerSlots button')[2].querySelector('img')?.alt===all[62].title&&!d.querySelectorAll('#cornerSlots button')[3].querySelector('img'),'Saved three-corner draft restores bottom-left without filling bottom-right');
+ d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);d.querySelector('#albumResults .artist-choice').click();await pause(15);
+ d.querySelectorAll('#albumResults .album-card')[3].click();
+ assert(d.querySelectorAll('#cornerSlots button')[3].querySelector('img')?.alt===all[63].title&&A.getDraft().slice(0,4).map(album=>album.title).join(',')===[all[60],all[61],all[63],all[62]].map(album=>album.title).join(','),'Fourth choice fills bottom-right while storage remains clockwise');
+ d.querySelectorAll('#cornerSlots button')[2].click();d.querySelectorAll('#albumResults .album-card')[4].click();
+ assert(outer.style.getPropertyValue('--outer-corner-3')===`rgba(${all[64].color.join(',')},.92)`&&A.getDraft()[3].title===all[64].title&&A.getDraft().some(album=>album.title===all[62].title),'Replacing bottom-left retains its previous album and physical color');
+ d.querySelectorAll('#cornerSlots button')[3].click();d.querySelectorAll('#albumResults .album-card')[5].click();
+ assert(outer.style.getPropertyValue('--outer-corner-4')===`rgba(${all[65].color.join(',')},.92)`&&A.getDraft()[2].title===all[65].title&&A.getDraft().some(album=>album.title===all[63].title),'Replacing bottom-right retains its previous album and physical color');
+ d.getElementById('closeAlbumDialog').click();await pause(350);
+ A.openPicker(all.slice(0,4));
  assert(picker.open&&d.activeElement===d.getElementById(w.matchMedia('(max-width:600px)').matches?'albumDialogTitle':'albumSearch'),'Album selector opens with appropriate keyboard focus');
  const pickerBox=picker.getBoundingClientRect();
  assert(pickerBox.left>=-2&&pickerBox.right<=w.innerWidth+2&&pickerBox.top>=-2&&pickerBox.bottom<=w.innerHeight+2,`Selector fits viewport (${Math.round(pickerBox.left)},${Math.round(pickerBox.top)}–${Math.round(pickerBox.right)},${Math.round(pickerBox.bottom)} in ${w.innerWidth}×${w.innerHeight})`);
@@ -51,7 +72,7 @@ document.getElementById('run').onclick=async()=>{
  d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);
  assert(d.querySelectorAll('#albumResults .artist-choice').length===1,'Artist-first search returns a selectable artist');
  d.querySelector('#albumResults .artist-choice').click();await pause(15);
- assert(d.querySelectorAll('#albumResults .album-card').length===4,'Artist albums render as cover cards');
+ assert(d.querySelectorAll('#albumResults .album-card').length===6,'Artist albums render as cover cards');
  main.scrollTop=main.scrollHeight;
  assert(guide.getBoundingClientRect().top>=head.getBoundingClientRect().bottom-1,'Scrolling results never clips cornerstone text under the header');
  d.querySelector('#cornerSlots button').click();d.querySelector('#albumResults .album-card').click();
@@ -65,14 +86,22 @@ document.getElementById('run').onclick=async()=>{
  assert(afterUpload.length===6&&afterUpload[1]==='Uploaded QA cover'&&afterUpload.includes(all[1].title),'Manual cover replacement retains the previous cornerstone when room remains');
  d.querySelectorAll('#cornerSlots button')[2].click();d.querySelectorAll('#albumResults .album-card')[1].click();
  assert(outer.style.getPropertyValue('--outer-corner-3')===`rgba(${all[60].color.join(',')},.92)`&&[...d.querySelectorAll('#selectedShelf img')][3].alt===all[60].title&&new Set([...d.querySelectorAll('#selectedShelf img')].map(im=>im.alt)).size===6,'Third visual slot swaps into bottom-left without shifting stored order or duplicating albums');
- d.getElementById('backAlbumDialog').click();await pause(200);assert(!picker.open,'Back closes album selector');
- A.openPicker(all.slice(0,4));d.getElementById('closeAlbumDialog').click();await pause(200);assert(!picker.open,'Close button dismisses album selector');
+ d.getElementById('backAlbumDialog').click();await pause(350);assert(!picker.open,'Back closes album selector');
+ A.openPicker(all.slice(0,4));d.getElementById('closeAlbumDialog').click();await pause(350);assert(!picker.open,'Close button dismisses album selector');
  C.artists=originalArtists;C.albums=originalAlbums;
  A.setAlbums(all.slice(0,60));S.enterEditor();A.state.motion=false;A.applySettings({motion:false});
- for(const mode of ['original','color','gradient','alternating','random']){A.state.arrangement=mode;A.renderGrid();assert(d.querySelectorAll('#grid .tile').length===60,mode+' renders 60 tiles');const pinned=[...d.querySelectorAll('#grid .cornerstone img')].map(im=>im.alt);assert(all.slice(0,4).every(a=>pinned.includes(`${a.title} by ${a.artist}`)),mode+' retains cornerstone covers');}
+ const screen=d.getElementById('screen');
+ ['a','b','c','d'].forEach((key,i)=>assert(screen.style.getPropertyValue(`--bleed-${key}`)===`rgb(${C.vividColor(all[C.cornerToStorage[i]].color).join(',')})`,'Live wallpaper frame corner '+(i+1)+' uses its selected album color'));
+ for(const mode of ['original','color','gradient','alternating','random']){A.state.arrangement=mode;A.renderGrid();const tiles=[...d.querySelectorAll('#grid .tile')];assert(tiles.length===60,mode+' renders 60 tiles');const pinned=[...d.querySelectorAll('#grid .cornerstone img')].map(im=>im.alt);assert(all.slice(0,4).every(a=>pinned.includes(`${a.title} by ${a.artist}`)),mode+' retains cornerstone covers');C.corners(60,A.state.columns).forEach((position,i)=>assert(tiles[position].querySelector('.front img').alt===`${all[i].title} by ${all[i].artist}`,mode+' keeps album '+(i+1)+' in its legacy physical corner'));}
+ const originalCollection=A.state.albums,pigments=[[235,40,45],[40,205,80],[45,80,235],[225,190,35]];
+ A.state.albums=originalCollection.map((album,i)=>i<4?{...album,color:pigments[i]}:album);
+ const physicalSample=(ctx,width,height)=>[[8,8],[width-9,8],[8,height-9],[width-9,height-9]].map(([x,y])=>[...ctx.getImageData(x,y,1,1).data].slice(0,3));
+ const cornersMatch=samples=>samples[0][0]>samples[0][1]&&samples[0][0]>samples[0][2]&&samples[1][1]>samples[1][0]&&samples[1][1]>samples[1][2]&&samples[2][0]>samples[2][2]&&samples[2][1]>samples[2][2]&&samples[3][2]>samples[3][0]&&samples[3][2]>samples[3][1];
+ for(const style of ['frost','smoke']){A.state.frame=style;const canvas=d.createElement('canvas');canvas.width=400;canvas.height=300;const ctx=canvas.getContext('2d');S.drawFrame(ctx,400,300);assert(cornersMatch(physicalSample(ctx,400,300)),style+' frame paints four distinct album colors in physical positions');}
  const oldClick=w.HTMLAnchorElement.prototype.click,downloads=[];w.HTMLAnchorElement.prototype.click=function(){downloads.push({url:this.href,name:this.download});};
- for(const [label,width,height]of [['phone',1290,2796],['desktop',3840,2160]]){await A.saveWallpaper(d.getElementById(label==='phone'?'savePhone':'saveDesktop'),width,height,label);const saved=downloads.at(-1);assert(saved?.name.includes(label),label+' PNG generated');const blob=await(await fetch(saved.url)).blob(),bitmap=await createImageBitmap(blob);assert(bitmap.width===width&&bitmap.height===height,label+' exact pixel dimensions');const testCanvas=document.createElement('canvas');testCanvas.width=width;testCanvas.height=height;const ctx=testCanvas.getContext('2d');ctx.drawImage(bitmap,0,0);assert(ctx.getImageData(width/2,height/2,1,1).data[3]===255,label+' has no transparent center');bitmap.close();}
+ for(const [label,width,height,style]of [['phone',1290,2796,'frost'],['desktop',3840,2160,'smoke']]){A.state.frame=style;await A.saveWallpaper(d.getElementById(label==='phone'?'savePhone':'saveDesktop'),width,height,label);const saved=downloads.at(-1);assert(saved?.name.includes(label),label+' PNG generated');const blob=await(await fetch(saved.url)).blob(),bitmap=await createImageBitmap(blob);assert(bitmap.width===width&&bitmap.height===height,label+' exact pixel dimensions');const testCanvas=document.createElement('canvas');testCanvas.width=width;testCanvas.height=height;const ctx=testCanvas.getContext('2d');ctx.drawImage(bitmap,0,0);assert(ctx.getImageData(width/2,height/2,1,1).data[3]===255,label+' has no transparent center');assert(cornersMatch(physicalSample(ctx,width,height)),label+' '+style+' export retains four physical album colors without website frame');bitmap.close();}
  w.HTMLAnchorElement.prototype.click=oldClick;
+ A.state.albums=originalCollection;A.state.frame='frost';
  await S.imported(fixture(w));assert(d.querySelectorAll('.suggestion').length===15,'45 imported → 15 relevant suggestions');
  d.querySelector('.suggestion-actions button:nth-child(2)').click();assert(d.querySelectorAll('.suggestion').length===15,'Replace suggestion replenishes grid');
  d.querySelector('.suggestion-actions button').click();assert(A.state.albums.length===46,'Individual acceptance preserves imported albums');
@@ -87,3 +116,4 @@ document.getElementById('run').onclick=async()=>{
  log('ALL INTEGRATED CHECKS PASSED');
  }catch(e){log('FAIL '+e.message);console.error(e);}
 };
+if(new URLSearchParams(location.search).has('auto'))document.getElementById('run').click();

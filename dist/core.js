@@ -22,6 +22,9 @@
     }
     return best || { rows: 2, columns: 2, count: 4 };
   }
+  // Saved collections are clockwise (TL, TR, BR, BL); the picker and color frame read TL, TR, BL, BR.
+  const cornerToStorage = Object.freeze([0, 1, 3, 2]);
+  const vividColor = rgb => { const middle=(rgb[0]+rgb[1]+rgb[2])/3; return rgb.map(channel=>Math.max(0,Math.min(255,Math.round(middle+(channel-middle)*1.4+12)))); };
   const corners = (count, columns) => [0, columns - 1, count - 1, count - columns]; // existing clockwise order
   function colorValues(rgb = [125, 128, 143]) {
     const [r,g,b] = rgb.map(v => v/255), max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
@@ -133,6 +136,6 @@
     if(collection.length<60&&!limited)for(const artist of top){try{const data=await read(`https://api.spotify.com/v1/artists/${encodeURIComponent(artist.id)}/albums?include_groups=album&limit=50`);pools.push((data.items||[]).filter(a=>a.album_group!=='appears_on').map(spotifyAlbum));}catch(_){pools.push([]);}}
     return {albums:collection,artists:top,pools,suggestions:recommend(top,pools,collection,60-collection.length),stats:{pages,tracks:trackIds.size,ranges,limited}};
   }
-  const api={normal,identity,unique,shape,corners,ordered,arrange,recommend,get,put,artists,albums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
+  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,ordered,arrange,recommend,get,put,artists,albums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

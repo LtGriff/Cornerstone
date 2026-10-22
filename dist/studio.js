@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const A=window.CornerstoneApp, C=window.CornerstoneCore, $=id=>document.getElementById(id);
-  const root=$('onboardingRoot'), cornerMap=[0,1,3,2], labels=['Top left','Top right','Bottom left','Bottom right'];
+  const root=$('onboardingRoot'), cornerMap=C.cornerToStorage, labels=['Top left','Top right','Bottom left','Bottom right'];
   const outerFrame=$('outerWebsiteFrame');
   const appearanceDock=$('appearanceDock'),themeToggle=$('themeToggle'),appearanceToggle=$('appearanceToggle'),appearancePopover=$('appearancePopover'),intensitySlider=$('outerIntensity'),intensityValue=$('outerIntensityValue');
   const setting=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch(_){return fallback;}};
@@ -32,11 +32,11 @@
   document.addEventListener('pointerdown',event=>{if(!appearanceDock.contains(event.target))closeAppearance();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!appearancePopover.hidden){closeAppearance();appearanceToggle.focus();}});
   let outerRevision=0;
-  function updateOuterFrame(items=[]){
-    const revision=++outerRevision, chosen=items.slice(0,4);
+  function updateOuterFrame(items=[],slots){
+    const revision=++outerRevision, chosen=Array.isArray(slots)?slots:cornerMap.map(index=>items[index]||null);
     outerFrame.dataset.activeCorners=String(chosen.filter(Boolean).length);
     for(let i=0;i<4;i++){
-      const album=chosen[cornerMap[i]];
+      const album=chosen[i];
       const property=`--outer-corner-${i+1}`;
       const paint=color=>outerFrame.style.setProperty(property,color?`rgba(${color.map(v=>Math.round(v)).join(',')},.92)`:'transparent');
       paint(Array.isArray(album?.color)?album.color:null);
@@ -44,7 +44,7 @@
     }
   }
   document.addEventListener('fullscreenchange',()=>{const full=!!document.fullscreenElement;outerFrame.hidden=full;appearanceDock.hidden=full;if(full)closeAppearance();});
-  let currentStep='landing', hasProject=false, ready=false, draft=null, importData=null, dismissed=new Set(), saveTimer, saveQueue=Promise.resolve(), gradientRevision=0, toastTimer;
+  let currentStep='landing', hasProject=false, ready=false, draft=null, draftCornerIndices=null, importData=null, dismissed=new Set(), saveTimer, saveQueue=Promise.resolve(), gradientRevision=0, toastTimer;
   let activeDraft=false;
   root.innerHTML='<div class="arrival"><div class="arrival-backdrop" aria-hidden="true"></div><section class="stage landing" id="stage" aria-label="Create your Cornerstone wall"></section></div>';
   const backdrop=root.querySelector('.arrival-backdrop');
@@ -82,19 +82,22 @@
   }
   function hex(v){return (v.match(/[a-f\d]{2}/gi)||['80','80','80']).map(x=>parseInt(x,16));}
   function setGradient(colors){['w','x','y','z'].forEach((key,i)=>document.documentElement.style.setProperty('--corner-'+key,colors[i]?`rgb(${colors[i].join(',')})`:'#424550'));}
-  async function gradient(items){updateOuterFrame(items);const rev=++gradientRevision;const colors=await Promise.all(cornerMap.map(i=>items[i]?C.analyze(items[i]):null));if(rev===gradientRevision)setGradient(colors);}
-  function pick(items){currentStep='picker';activeDraft=true;draft=items.slice();show(`<p class="eyebrow">Made of your favorites</p><h2 tabindex="-1">Build your collection.</h2><p class="subtitle">Choose four cornerstones, then add more albums. Your choices stay on this device.</p><button class="glass-pill" id="reopenPicker">Choose albums →</button><button class="quiet-button" id="pickerBack">← Back</button>`);bind('reopenPicker',()=>A.openPicker(draft));bind('pickerBack',modes);A.openPicker(draft);}
+  async function gradient(items,slots){const chosen=Array.isArray(slots)?slots:cornerMap.map(index=>items[index]||null);updateOuterFrame(items,chosen);const rev=++gradientRevision;const colors=await Promise.all(chosen.map(album=>album?C.analyze(album):null));if(rev===gradientRevision)setGradient(colors);}
+  function pick(items,cornerIndices=draftCornerIndices){currentStep='picker';activeDraft=true;draft=items.slice();draftCornerIndices=cornerIndices;show(`<p class="eyebrow">Made of your favorites</p><h2 tabindex="-1">Build your collection.</h2><p class="subtitle">Choose four cornerstones, then add more albums. Your choices stay on this device.</p><button class="glass-pill" id="reopenPicker">Choose albums →</button><button class="quiet-button" id="pickerBack">← Back</button>`);bind('reopenPicker',()=>A.openPicker(draft,draftCornerIndices));bind('pickerBack',modes);A.openPicker(draft,draftCornerIndices);}
   // Reuse the working picker, with four explicit replacement targets above its search.
   const guide=document.createElement('div');guide.className='corner-guide';guide.innerHTML='<h3 id="guideTitle">Choose your four cornerstones</h3><p id="guideCopy">Start with the albums that define your wall.</p><div class="corner-slots" id="cornerSlots"></div>';
   // Keep cornerstones outside the scrolling search pane so its heading cannot slide behind the fixed modal header.
   document.querySelector('#albumDialog .picker-head').after(guide);
-  function draftChanged(items){
-    draft=items.slice(); activeDraft=true;const slots=$('cornerSlots');slots.replaceChildren();
-    cornerMap.forEach((index,i)=>{const a=items[index],b=document.createElement('button');b.type='button';b.className='corner-slot';b.dataset.cornerPosition=String(i+1);b.dataset.albumIndex=String(index);b.setAttribute('aria-label',a?`Replace cornerstone ${i+1}, ${labels[i]}: ${a.title}`:`Choose cornerstone ${i+1}, ${labels[i]}`);if(a){const im=new Image();im.src=a.thumb||a.art;im.alt=a.title;b.append(im);}else b.append(document.createTextNode('+'));const label=document.createElement('span');label.textContent=`${i+1} · ${labels[i]}`;b.append(label);b.onclick=()=>{slots.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));A.targetCorner(index);};slots.append(b);});
-    $('guideTitle').textContent=items.length<4?'Choose your four cornerstones':'Now make it your own';
-    $('guideCopy').textContent=items.length<4?`${items.length} of 4 anchors chosen · tap a slot to replace its cover`:`${items.length} / 60 albums · keep adding, or create a smaller wall now`;
+  function draftChanged(items,slots){
+    draft=items.slice(); activeDraft=true;const slotContainer=$('cornerSlots');slotContainer.replaceChildren();
+    const chosen=Array.isArray(slots)?slots:cornerMap.map(index=>items[index]||null);
+    if(Array.isArray(slots))draftCornerIndices=chosen.map(album=>album?items.findIndex(item=>C.identity(item)===C.identity(album)):-1);
+    cornerMap.forEach((index,i)=>{const a=chosen[i],b=document.createElement('button');b.type='button';b.className='corner-slot';b.dataset.cornerPosition=String(i+1);b.dataset.albumIndex=String(index);b.setAttribute('aria-label',a?`Replace cornerstone ${i+1}, ${labels[i]}: ${a.title}`:`Choose cornerstone ${i+1}, ${labels[i]}`);if(a){const im=new Image();im.src=a.thumb||a.art;im.alt=a.title;b.append(im);}else b.append(document.createTextNode('+'));const label=document.createElement('span');label.textContent=`${i+1} · ${labels[i]}`;b.append(label);b.onclick=()=>{slotContainer.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));A.targetCorner(i);};slotContainer.append(b);});
+    const anchors=chosen.filter(Boolean).length;
+    $('guideTitle').textContent=anchors<4?'Choose your four cornerstones':'Now make it your own';
+    $('guideCopy').textContent=anchors<4?`${anchors} of 4 anchors chosen · tap a slot to replace its cover`:`${items.length} / 60 albums · keep adding, or create a smaller wall now`;
     $('applyAlbums').textContent=items.length>=60?'Create my wall →':`Use these ${items.length} albums →`;
-    void gradient(items);changed();
+    void gradient(items,chosen);changed();
   }
   function recommendationScreen(){
     currentStep='recommendations';const count=A.state.albums.length,need=Math.max(0,60-count),stats=importData?.stats;
@@ -107,7 +110,7 @@
     $('useCollection').disabled=count<4;bind('acceptAll',()=>accept(suggestions));bind('manualCompletion',()=>pick(A.state.albums));bind('useCollection',()=>{activeDraft=false;draft=A.state.albums.slice();enterEditor();});void save();
   }
   function accept(items){A.state.albums=C.unique(A.state.albums.concat(items));draft=A.state.albums.slice();activeDraft=false;void gradient(draft);recommendationScreen();}
-  function resume(){updateOuterFrame(activeDraft&&draft?.length?draft:A.state.mode==='albums'?A.state.albums:[]);if(activeDraft&&draft?.length){pick(draft);return;}if(importData&&currentStep!=='editor'&&!importData.completed&&A.state.albums.length<60){recommendationScreen();return;}enterEditor();}
+  function resume(){if(activeDraft&&draft?.length){pick(draft,draftCornerIndices);return;}updateOuterFrame(A.state.mode==='albums'?A.state.albums:[]);if(importData&&currentStep!=='editor'&&!importData.completed&&A.state.albums.length<60){recommendationScreen();return;}enterEditor();}
   function enterEditor(){
     if(importData)importData.completed=true;
     currentStep='editor';activeDraft=false;document.body.classList.remove('onboarding');document.querySelector('.app').inert=false;hasProject=true;
@@ -117,7 +120,7 @@
     if(A.state.mode==='albums')void analyzeCollection();
   }
   async function analyzeCollection(){const items=A.state.albums;await C.analyzeAll(items);if(A.state.albums!==items)return;if(A.state.arrangement!=='original')A.renderGrid();void save();}
-  function snapshot(){const s=A.state;return {version:3,updatedAt:Date.now(),state:{albums:s.albums,colors:s.colors,mode:s.mode,detail:s.detail,frame:s.frame,frameInches:s.frameInches,motion:s.motion,speed:s.speed,phone:s.phone,customAlbums:s.customAlbums,arrangement:s.arrangement,colorPreference:s.colorPreference,randomSeed:s.randomSeed},draft,activeDraft,importData,dismissed:[...dismissed],step:currentStep};}
+  function snapshot(){const s=A.state;return {version:3,updatedAt:Date.now(),state:{albums:s.albums,colors:s.colors,mode:s.mode,detail:s.detail,frame:s.frame,frameInches:s.frameInches,motion:s.motion,speed:s.speed,phone:s.phone,customAlbums:s.customAlbums,arrangement:s.arrangement,colorPreference:s.colorPreference,randomSeed:s.randomSeed},draft,draftCornerIndices,activeDraft,importData,dismissed:[...dismissed],step:currentStep};}
   function save(){
     if(!ready)return Promise.resolve();
     const data=structuredClone(snapshot());
@@ -126,7 +129,7 @@
   }
   function changed(){if(!ready)return;clearTimeout(saveTimer);saveTimer=setTimeout(save,350);}
   function toast(message){let el=$('studioToast');if(!el){el=document.createElement('div');el.id='studioToast';el.className='toast';el.setAttribute('role','status');document.body.append(el);}el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,5500);}
-  function drawFrame(ctx,w,h){if(A.state.frame==='none')return;const list=cornerMap.map(i=>A.state.albums[i]?.color||hex(A.state.colorPreference)),points=[[0,0],[w,0],[0,h],[w,h]];ctx.fillStyle=A.state.frame==='smoke'?'#191a21':'#deddd8';ctx.fillRect(0,0,w,h);points.forEach(([x,y],i)=>{const g=ctx.createRadialGradient(x,y,0,x,y,Math.max(w,h)*.8);g.addColorStop(0,`rgba(${list[i].join(',')},.6)`);g.addColorStop(1,`rgba(${list[i].join(',')},0)`);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);});}
+  function drawFrame(ctx,w,h){if(A.state.frame==='none')return;const fallback=hex(A.state.colorPreference),list=cornerMap.map(i=>C.vividColor(A.state.albums[i]?.color||fallback)),points=[[0,0],[w,0],[0,h],[w,h]];ctx.fillStyle=A.state.frame==='smoke'?'#252830':'#d9dde2';ctx.fillRect(0,0,w,h);points.forEach(([x,y],i)=>{const g=ctx.createRadialGradient(x,y,0,x,y,Math.max(w,h)*.75);g.addColorStop(0,`rgba(${list[i].join(',')},.94)`);g.addColorStop(.58,`rgba(${list[i].join(',')},.28)`);g.addColorStop(1,`rgba(${list[i].join(',')},0)`);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);});ctx.fillStyle=A.state.frame==='smoke'?'rgba(8,10,15,.12)':'rgba(248,250,255,.1)';ctx.fillRect(0,0,w,h);}
   const settings=document.createElement('section');settings.className='studio-controls';settings.innerHTML='<label for="arrangement">Arrange my albums</label><select id="arrangement"><option value="original">Original order</option><option value="color">By color</option><option value="gradient">Gradient</option><option value="alternating">Alternating</option><option value="random">Random</option></select><div class="project-actions"><button class="quiet-button" id="editCorners">Edit cornerstones</button><button class="quiet-button" id="changePalette">Change palette</button><button class="quiet-button" id="backToStart">Start screen</button><button class="quiet-button" id="backupProject">Save project file</button><button class="quiet-button" id="restoreProject">Open project file</button></div><input id="projectFile" type="file" accept="application/json,.json" hidden><p class="local-status" id="saveStatus">Saved on this device · no cloud account</p>';
   document.querySelector('.controls .actions').before(settings);
   $('arrangement').onchange=async e=>{A.state.arrangement=e.target.value;A.state.randomSeed=Date.now();A.renderGrid({wave:true});toast('Arranging your collection…');await analyzeCollection();toast('Arrangement updated. Your four corners stayed fixed.');};
@@ -142,12 +145,12 @@
     data.state={albums,colors:colors.length?colors:A.state.colors,customAlbums:true,mode:s.mode==='albums'?'albums':'colors',arrangement:['original','color','gradient','alternating','random'].includes(s.arrangement)?s.arrangement:'original',colorPreference:/^#[a-f\d]{6}$/i.test(s.colorPreference)?s.colorPreference:'#d78c56',detail:Math.round(Math.max(1,Math.min(5,Number(s.detail)||5))),frameInches:Math.max(0,Math.min(2,Number(s.frameInches)||0)),speed:Math.max(1,Math.min(3,Number(s.speed)||2)),frame:['none','frost','smoke'].includes(s.frame)?s.frame:'frost',motion:s.motion!==false,phone:!!s.phone,randomSeed:Number(s.randomSeed)||1};
     return data;
   }
-  $('projectFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>30000000)throw Error('This project file is too large.');const data=validateProject(JSON.parse(await file.text()));Object.assign(A.state,data.state);draft=A.state.albums.slice();importData=null;enterEditor();toast('Project opened.');}catch(err){toast(err.message);}e.target.value='';};
+  $('projectFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>30000000)throw Error('This project file is too large.');const data=validateProject(JSON.parse(await file.text()));Object.assign(A.state,data.state);draft=A.state.albums.slice();draftCornerIndices=null;importData=null;enterEditor();toast('Project opened.');}catch(err){toast(err.message);}e.target.value='';};
   document.querySelector('.controls').addEventListener('input',changed);document.querySelector('.controls').addEventListener('click',changed);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)void save();});
-  window.CornerstoneStudio={changed,draftChanged,save,enterEditor,drawFrame,importProgress:count=>{const el=$('importProgress');if(el)el.textContent=`${count} unique albums found…`;},imported:async result=>{importData=result;draft=result.albums.slice();activeDraft=false;A.state.detail=5;await save();void gradient(draft);recommendationScreen();},importFailed:message=>{connect();toast(message);}};
+  window.CornerstoneStudio={changed,draftChanged,save,enterEditor,drawFrame,importProgress:count=>{const el=$('importProgress');if(el)el.textContent=`${count} unique albums found…`;},imported:async result=>{importData=result;draft=result.albums.slice();draftCornerIndices=null;activeDraft=false;A.state.detail=5;await save();void gradient(draft);recommendationScreen();},importFailed:message=>{connect();toast(message);}};
   async function boot(){
-    try{const project=await C.get('project');if(project?.version===3){Object.assign(A.state,project.state);A.state.albums=C.unique(A.state.albums||[]);draft=project.draft;activeDraft=project.activeDraft;importData=project.importData;dismissed=new Set(project.dismissed||[]);hasProject=true;}else if(A.state.customAlbums){A.state.albums=C.unique(A.state.albums);A.state.mode='albums';hasProject=true;}}catch(_){$('saveStatus').textContent='Browser storage is unavailable. Use Save project file to keep a copy.';}
+    try{const project=await C.get('project');if(project?.version===3){Object.assign(A.state,project.state);A.state.albums=C.unique(A.state.albums||[]);draft=project.draft;draftCornerIndices=Array.isArray(project.draftCornerIndices)&&project.draftCornerIndices.length===4&&project.draftCornerIndices.every(index=>Number.isInteger(index)&&index>=-1&&index<(draft?.length||0))&&new Set(project.draftCornerIndices.filter(index=>index>=0)).size===project.draftCornerIndices.filter(index=>index>=0).length?project.draftCornerIndices:null;activeDraft=project.activeDraft;importData=project.importData;dismissed=new Set(project.dismissed||[]);hasProject=true;}else if(A.state.customAlbums){A.state.albums=C.unique(A.state.albums);A.state.mode='albums';hasProject=true;}}catch(_){$('saveStatus').textContent='Browser storage is unavailable. Use Save project file to keep a copy.';}
     ready=true;
     if(A.wallpaperMode){document.body.classList.remove('onboarding');document.querySelector('.app').inert=false;A.renderGrid();return;}
     const callback=new URLSearchParams(location.search);

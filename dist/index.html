@@ -433,29 +433,29 @@
     }
 
     .screen::before {
-      inset: -22%;
+      inset: 0;
       background:
-        radial-gradient(circle at 8% 18%, var(--bleed-a, #ff5d78), transparent 34%),
-        radial-gradient(circle at 88% 12%, var(--bleed-b, #47d6ca), transparent 35%),
-        radial-gradient(circle at 82% 88%, var(--bleed-c, #6d7cff), transparent 38%),
-        radial-gradient(circle at 12% 86%, var(--bleed-d, #ffd84d), transparent 36%);
-      filter: blur(34px) saturate(1.18);
-      opacity: .88;
-      transform: translateZ(0) scale(1.08);
+        radial-gradient(ellipse 82% 86% at 0% 0%, var(--bleed-a, #ff5d78), transparent 84%),
+        radial-gradient(ellipse 82% 86% at 100% 0%, var(--bleed-b, #47d6ca), transparent 84%),
+        radial-gradient(ellipse 82% 86% at 0% 100%, var(--bleed-c, #6d7cff), transparent 84%),
+        radial-gradient(ellipse 82% 86% at 100% 100%, var(--bleed-d, #ffd84d), transparent 84%);
+      filter: blur(10px) saturate(1.35);
+      opacity: 1;
+      transform: translateZ(0);
       backface-visibility: hidden;
       contain: paint;
     }
 
     .screen.album-bleed::before {
-      filter: blur(38px) saturate(1.3);
-      opacity: .95;
+      filter: blur(10px) saturate(1.45);
+      opacity: 1;
       will-change: auto;
     }
 
     .screen::after {
       inset: 0;
-      background: var(--glass-tint, rgba(247,249,255,.38));
-      backdrop-filter: blur(22px) saturate(1.25);
+      background: var(--glass-tint, rgba(247,249,255,.17));
+      backdrop-filter: blur(18px) saturate(1.3);
     }
 
     .grid {
@@ -811,6 +811,7 @@
       let albumSearchResults = [];
       let artistSearchResults = [];
       let draftAlbums = [];
+      let draftCornerSlots = [null, null, null, null]; // visible TL, TR, BL, BR; saved albums stay clockwise
       let cornerstoneTarget = null;
       let searchController = null;
       let searchSequence = 0;
@@ -941,7 +942,6 @@
         while (chosen.length < 7) chosen.push(chosen[chosen.length % colors.length] || palette[chosen.length % palette.length]);
         const root = document.documentElement;
         chosen.slice(0, 7).forEach((color, index) => root.style.setProperty(`--ambient-${index + 1}`, color));
-        ['a', 'b', 'c', 'd'].forEach((key, index) => $('screen').style.setProperty(`--bleed-${key}`, chosen[index]));
         root.style.setProperty('--accent', chosen[4]);
         root.style.setProperty('--accent-ink', readableInk(chosen[4]));
       }
@@ -988,14 +988,27 @@
         }, 60000);
       }
 
+      let frameColorRevision = 0;
+      function applyFrameColors(colors) {
+        ['a', 'b', 'c', 'd'].forEach((key, index) => {
+          const color = colors[index];
+          $('screen').style.setProperty(`--bleed-${key}`, Array.isArray(color) ? `rgb(${C.vividColor(color).join(',')})` : color || '#838996');
+        });
+      }
       function updateFrame({ refreshBleed = false } = {}) {
         const screen = $('screen');
+        const colorRevision = ++frameColorRevision;
         const previewScale = state.phone ? 18 : 24;
         const width = state.frame === 'none' ? 0 : state.frameInches * previewScale;
         screen.style.setProperty('--frame-size', `${width}px`);
-        screen.style.setProperty('--glass-tint', state.frame === 'smoke' ? 'rgba(8,10,15,.58)' : 'rgba(248,250,255,.38)');
+        screen.style.setProperty('--glass-tint', state.frame === 'smoke' ? 'rgba(8,10,15,.25)' : 'rgba(248,250,255,.17)');
         screen.classList.toggle('album-bleed', state.mode === 'albums' && state.albums.length > 0);
         if (state.mode === 'albums' && state.albums.length) {
+          const cornerAlbums = C.cornerToStorage.map(index => state.albums[index]);
+          applyFrameColors(cornerAlbums.map(album => album?.color));
+          void Promise.all(cornerAlbums.map(album => album ? C.analyze(album) : null)).then(colors => {
+            if (colorRevision === frameColorRevision && state.mode === 'albums') applyFrameColors(colors);
+          });
           if (refreshBleed || screen.dataset.ambientMode !== 'albums') void refreshAlbumBleed();
           screen.dataset.ambientMode = 'albums';
           restartAlbumBleedTimer();
@@ -1004,6 +1017,7 @@
           const bleed = state.colors.length ? state.colors : palette;
           const fixed = samplePoints.map((index) => bleed[index]).filter(Boolean);
           applyAmbientColors(fixed.length ? fixed : bleed.slice(0, 7));
+          applyFrameColors(bleed.slice(0, 4));
           screen.dataset.ambientMode = 'colors';
         }
         $('frameSize').disabled = state.frame === 'none';
@@ -1161,11 +1175,29 @@
         renderGrid({ wave: true, refreshBleed: state.mode === 'albums' });
       });
 
+      const sameDraftAlbum = (a, b) => !!a && !!b && C.identity(a) === C.identity(b);
+      function syncDraftOrder() {
+        const fixed = [draftCornerSlots[0], draftCornerSlots[1], draftCornerSlots[3], draftCornerSlots[2]].filter(Boolean);
+        const fixedIds = new Set(fixed.map(C.identity));
+        draftAlbums = C.unique(fixed.concat(draftAlbums.filter(album => !fixedIds.has(C.identity(album)))));
+      }
+      function removeDraftAlbum(album) {
+        draftAlbums = draftAlbums.filter(choice => !sameDraftAlbum(choice, album));
+        draftCornerSlots = draftCornerSlots.map(choice => sameDraftAlbum(choice, album) ? null : choice);
+        syncDraftOrder();
+      }
+      function addDraftAlbum(album) {
+        if (draftAlbums.length >= 60) return;
+        const empty = draftCornerSlots.findIndex(choice => !choice);
+        if (empty >= 0) draftCornerSlots[empty] = album;
+        draftAlbums.push(album);
+        syncDraftOrder();
+      }
       function updateDraftCount() {
         $('albumSelectionCount').textContent = `${draftAlbums.length} / 60 selected`;
         $('pickerRackCount').textContent = `${draftAlbums.length} / 60`;
-        $('applyAlbums').disabled = draftAlbums.length < 4;
-        window.CornerstoneStudio?.draftChanged(draftAlbums);
+        $('applyAlbums').disabled = draftCornerSlots.some(choice => !choice);
+        window.CornerstoneStudio?.draftChanged(draftAlbums, draftCornerSlots.slice());
         const shelf = $('selectedShelf');
         shelf.replaceChildren();
         draftAlbums.forEach((album, index) => {
@@ -1178,10 +1210,11 @@
           image.src = album.thumb || album.art;
           image.alt = album.title;
           const badge = document.createElement('span');
-          badge.textContent = index < 4 ? `C${index + 1}` : `${index + 1}`;
+          const position = draftCornerSlots.findIndex(choice => sameDraftAlbum(choice, album));
+          badge.textContent = position >= 0 ? `C${position + 1}` : `${index + 1}`;
           button.append(image, badge);
           button.addEventListener('click', () => {
-            draftAlbums.splice(index, 1);
+            removeDraftAlbum(album);
             renderAlbumResults();
             updateDraftCount();
           });
@@ -1190,15 +1223,18 @@
       }
 
       function placeCornerstone(album) {
-        const target = Math.min(cornerstoneTarget, draftAlbums.length);
-        const existing = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
-        if (existing >= 0 && target < draftAlbums.length) {
-          [draftAlbums[target], draftAlbums[existing]] = [draftAlbums[existing], draftAlbums[target]];
-        } else if (existing < 0) {
-          const previous = draftAlbums[target];
-          draftAlbums[target] = album;
-          if (previous && draftAlbums.length < 60 && !draftAlbums.some((choice) => C.identity(choice) === C.identity(previous))) draftAlbums.push(previous);
+        const target = cornerstoneTarget, previous = draftCornerSlots[target];
+        const source = draftCornerSlots.findIndex(choice => sameDraftAlbum(choice, album));
+        const alreadySelected = draftAlbums.some(choice => sameDraftAlbum(choice, album));
+        if (source >= 0 && source !== target) {
+          draftCornerSlots[source] = previous;
+          draftCornerSlots[target] = album;
+        } else if (source < 0) {
+          if (!alreadySelected && draftAlbums.length >= 60 && previous) removeDraftAlbum(previous);
+          draftCornerSlots[target] = album;
+          if (!alreadySelected) draftAlbums.push(album);
         }
+        syncDraftOrder();
         cornerstoneTarget = null;
       }
 
@@ -1211,8 +1247,9 @@
           card.className = 'album-card';
           const selected = draftAlbums.some((choice) => C.identity(choice) === C.identity(album));
           const selectedIndex = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
+          const selectedCorner = draftCornerSlots.findIndex(choice => sameDraftAlbum(choice, album));
           card.setAttribute('aria-pressed', String(selected));
-          if (selectedIndex >= 0) card.dataset.pick = selectedIndex < 4 ? `Corner ${selectedIndex + 1}` : `${selectedIndex + 1}`;
+          if (selectedIndex >= 0) card.dataset.pick = selectedCorner >= 0 ? `Corner ${selectedCorner + 1}` : `${selectedIndex + 1}`;
           const image = new Image();
           image.crossOrigin = 'anonymous';
           image.src = album.thumb || album.art;
@@ -1227,8 +1264,8 @@
           card.addEventListener('click', () => {
             const existing = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
             if (cornerstoneTarget !== null) placeCornerstone(album);
-            else if (existing >= 0) draftAlbums.splice(existing, 1);
-            else if (draftAlbums.length < 60) draftAlbums=C.unique(draftAlbums.concat(album));
+            else if (existing >= 0) removeDraftAlbum(album);
+            else addDraftAlbum(album);
             renderAlbumResults();
             updateDraftCount();
           });
@@ -1275,8 +1312,13 @@
         } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
       }
 
-      function openPicker(albums) {
+      function openPicker(albums, cornerIndices) {
         draftAlbums = C.unique(albums || (state.customAlbums ? state.albums : []));
+        draftCornerSlots = C.cornerToStorage.map((index, position) => {
+          const savedIndex = Array.isArray(cornerIndices) ? cornerIndices[position] : index;
+          return Number.isInteger(savedIndex) && savedIndex >= 0 ? draftAlbums[savedIndex] || null : null;
+        });
+        syncDraftOrder();
         cornerstoneTarget = null;
         albumSearchResults=[]; artistSearchResults=[];
         $('albumResults').classList.remove('artist-results');
@@ -1359,7 +1401,7 @@
             year: 'Your artwork',
             art: await manualArtworkData(file)
           };
-          if(cornerstoneTarget!==null)placeCornerstone(album);else draftAlbums=C.unique(draftAlbums.concat(album));
+          if(cornerstoneTarget!==null)placeCornerstone(album);else addDraftAlbum(album);
           albumSearchResults.unshift(album);
           $('albumResults').classList.remove('artist-results');
           renderAlbumResults();
@@ -1494,6 +1536,7 @@
           const context = canvas.getContext('2d');
           context.fillStyle = state.frame === 'smoke' ? '#17171c' : '#e8e5df';
           context.fillRect(0, 0, width, height);
+          if (state.mode === 'albums' && state.frame !== 'none') await Promise.all(C.cornerToStorage.map(index => state.albums[index] ? C.analyze(state.albums[index]) : null));
           window.CornerstoneStudio?.drawFrame(context,width,height);
           const cellWidth = innerWidth / shape.columns, cellHeight = innerHeight / shape.rows;
           if (state.mode === 'albums') {
@@ -1528,7 +1571,8 @@
       $('saveDesktop').addEventListener('click', () => saveWallpaper($('saveDesktop'), 3840, 2160, 'desktop'));
 
       $('applyAlbums').addEventListener('click', () => {
-        if (draftAlbums.length < 4) return;
+        if (draftCornerSlots.some(choice => !choice)) return;
+        syncDraftOrder();
         state.albums = C.unique(draftAlbums);
         state.customAlbums = true;
         state.mode = 'albums';
@@ -1637,8 +1681,8 @@
       window.CornerstoneApp = {
         state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount,
         getDraft:()=>draftAlbums,
-        setDraft:items=>{draftAlbums=C.unique(items);renderAlbumResults();updateDraftCount();},
-        targetCorner:index=>{cornerstoneTarget=index; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
+        setDraft:items=>{draftAlbums=C.unique(items);draftCornerSlots=C.cornerToStorage.map(index=>draftAlbums[index]||null);renderAlbumResults();updateDraftCount();},
+        targetCorner:position=>{cornerstoneTarget=position; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
         finishSpotifyImport,
         setAlbums:items=>{state.albums=C.unique(items);state.customAlbums=true;state.mode='albums';state.detail=5;if(state.albums.length>=4)renderGrid({wave:true,refreshBleed:true});},
         saveWallpaper
