@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#0b0b0d">
   <meta name="description" content="Turn favorite albums or colors into a living wall anchored by four permanent cornerstones.">
   <title>Cornerstone</title>
+  <script>
+    try { if (localStorage.getItem('cornerstone-theme') === 'day') document.documentElement.dataset.theme = 'day'; } catch (_) {}
+  </script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0b0d'/%3E%3Cpath d='M5 5h10v10H5zm12 0h10v10H17zM5 17h10v10H5z' fill='%23fb4b68'/%3E%3Cpath d='M17 17h10v10H17z' fill='%235fe0c1'/%3E%3C/svg%3E">
   <style>
     :root {
@@ -430,29 +433,29 @@
     }
 
     .screen::before {
-      inset: -22%;
+      inset: 0;
       background:
-        radial-gradient(circle at 8% 18%, var(--bleed-a, #ff5d78), transparent 34%),
-        radial-gradient(circle at 88% 12%, var(--bleed-b, #47d6ca), transparent 35%),
-        radial-gradient(circle at 82% 88%, var(--bleed-c, #6d7cff), transparent 38%),
-        radial-gradient(circle at 12% 86%, var(--bleed-d, #ffd84d), transparent 36%);
-      filter: blur(34px) saturate(1.18);
-      opacity: .88;
-      transform: translateZ(0) scale(1.08);
+        radial-gradient(ellipse 82% 86% at 0% 0%, var(--bleed-a, #ff5d78), transparent 84%),
+        radial-gradient(ellipse 82% 86% at 100% 0%, var(--bleed-b, #47d6ca), transparent 84%),
+        radial-gradient(ellipse 82% 86% at 0% 100%, var(--bleed-c, #6d7cff), transparent 84%),
+        radial-gradient(ellipse 82% 86% at 100% 100%, var(--bleed-d, #ffd84d), transparent 84%);
+      filter: blur(10px) saturate(1.35);
+      opacity: 1;
+      transform: translateZ(0);
       backface-visibility: hidden;
       contain: paint;
     }
 
     .screen.album-bleed::before {
-      filter: blur(38px) saturate(1.3);
-      opacity: .95;
+      filter: blur(10px) saturate(1.45);
+      opacity: 1;
       will-change: auto;
     }
 
     .screen::after {
       inset: 0;
-      background: var(--glass-tint, rgba(247,249,255,.38));
-      backdrop-filter: blur(22px) saturate(1.25);
+      background: var(--glass-tint, rgba(247,249,255,.17));
+      backdrop-filter: blur(18px) saturate(1.3);
     }
 
     .grid {
@@ -585,8 +588,21 @@
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
     }
   </style>
+  <link rel="stylesheet" href="studio.css">
 </head>
-<body>
+<body class="onboarding">
+  <div id="outerWebsiteFrame" class="outer-website-frame" aria-hidden="true"></div>
+  <div class="appearance-dock" id="appearanceDock" aria-label="Website appearance">
+    <button class="appearance-icon" id="themeToggle" type="button" aria-label="Switch to day mode" aria-pressed="false" title="Switch to day mode"><span aria-hidden="true">☀</span></button>
+    <button class="appearance-icon" id="appearanceToggle" type="button" aria-label="Outer-frame appearance settings" aria-expanded="false" aria-controls="appearancePopover" title="Outer-frame appearance settings"><span aria-hidden="true">◐</span></button>
+    <div class="appearance-popover" id="appearancePopover" role="region" aria-label="Outer-frame appearance settings" hidden>
+      <div class="appearance-heading"><label for="outerIntensity">Outer-frame color intensity</label><output id="outerIntensityValue" for="outerIntensity">75%</output></div>
+      <input id="outerIntensity" type="range" min="0" max="100" step="1" value="75" aria-describedby="outerIntensityHelp">
+      <p id="outerIntensityHelp">Only the website frame changes. Your wallpaper frame stays separate.</p>
+    </div>
+  </div>
+  <div id="onboardingRoot"></div>
+  <noscript>Cornerstone needs JavaScript to create your wall.</noscript>
   <main class="app">
     <section class="controls" aria-labelledby="page-title">
       <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Cornerstone</div>
@@ -602,10 +618,11 @@
           <button type="button" data-mode="colors" aria-pressed="true">Colors</button>
           <button type="button" data-mode="albums" aria-pressed="false">Albums</button>
         </div>
-        <p class="source-note" id="fillNote" hidden><span id="albumSource">Current chart test set.</span></p>
+        <p class="source-note" id="fillNote" hidden><span id="albumSource">Example catalog.</span></p>
         <div class="album-tools" id="albumTools" hidden>
           <button class="action" id="chooseAlbums" type="button">Choose your albums</button>
           <button class="action" id="connectSpotify" type="button">Connect Spotify</button>
+          <p class="spotify-note" style="grid-column:1 / -1; margin:2px 2px 0">Spotify sync is currently a private beta limited to five approved accounts. Everyone can still choose albums manually and save a wallpaper without connecting Spotify.</p>
         </div>
       </section>
 
@@ -679,35 +696,42 @@
   <dialog id="albumDialog" aria-labelledby="albumDialogTitle">
     <div class="picker-shell">
       <div class="picker-head">
+        <button class="picker-back" id="backAlbumDialog" type="button" aria-label="Back to Cornerstone"><span aria-hidden="true">←</span><span>Back</span></button>
         <div>
-          <h2 id="albumDialogTitle">Choose your albums</h2>
+          <p class="picker-kicker">YOUR COLLECTION</p>
+          <h2 id="albumDialogTitle" tabindex="-1">Choose your albums</h2>
           <p>Find the artist first, then choose from their official albums and EPs.</p>
         </div>
         <button class="dialog-close" id="closeAlbumDialog" type="button" aria-label="Close">×</button>
       </div>
-      <form class="album-search" id="albumSearchForm">
-        <input id="albumSearch" type="search" placeholder="Try “SZA” or “Drake”" autocomplete="off" required>
-        <button class="action" type="submit">Find artist</button>
-      </form>
-      <p class="search-status" id="albumSearchStatus">Your first four choices become Corner 1–4, clockwise.</p>
-      <p class="retry-note">* If search says unavailable, wait a moment and search again.</p>
-      <div class="album-results" id="albumResults" aria-live="polite"></div>
-      <details class="manual-cover">
-        <summary>Can’t find an album? Add your own cover</summary>
-        <form class="manual-form" id="manualAlbumForm">
-          <input id="manualTitle" type="text" placeholder="Album title" required>
-          <input id="manualArtist" type="text" placeholder="Artist" required>
-          <input id="manualArtwork" type="file" accept="image/png,image/jpeg,image/webp" required aria-label="Album cover image">
-          <button class="action" type="submit">Add this album</button>
+      <div class="picker-main">
+        <form class="album-search" id="albumSearchForm">
+          <input id="albumSearch" type="search" placeholder="Try “SZA” or “Drake”" autocomplete="off" aria-label="Search artists" required>
+          <button class="action" type="submit">Find artist</button>
         </form>
-      </details>
-      <div class="selected-shelf" id="selectedShelf" aria-label="Selected albums"></div>
-      <div class="picker-foot">
-        <span class="picker-count" id="albumSelectionCount">0 selected</span>
-        <button class="action" id="resetChart" type="button">Use chart test</button>
-        <button class="action primary" id="applyAlbums" type="button" disabled>Use selected</button>
+        <p class="search-status" id="albumSearchStatus">Choose four cornerstones, then complete your collection.</p>
+        <p class="retry-note">* If search says unavailable, wait a moment and search again.</p>
+        <div class="album-results" id="albumResults" aria-live="polite"></div>
+        <details class="manual-cover">
+          <summary>Can’t find an album? Add your own cover</summary>
+          <form class="manual-form" id="manualAlbumForm">
+            <input id="manualTitle" type="text" placeholder="Album title" required>
+            <input id="manualArtist" type="text" placeholder="Artist" required>
+            <input id="manualArtwork" type="file" accept="image/png,image/jpeg,image/webp" required aria-label="Album cover image">
+            <button class="action" type="submit">Add this album</button>
+          </form>
+        </details>
       </div>
-      <p class="picker-credit">Search metadata by <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · artwork from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a></p>
+      <div class="picker-footer">
+        <div class="picker-rack-reserve" aria-label="Collection progress"><span class="picker-rack-preview" aria-hidden="true"></span><span>Collection progress</span><strong id="pickerRackCount">0 / 60</strong></div>
+        <div class="selected-shelf" id="selectedShelf" aria-label="Selected albums"></div>
+        <div class="picker-foot">
+          <span class="picker-count" id="albumSelectionCount">0 selected</span>
+          <button class="action" id="resetChart" type="button" hidden>Use chart test</button>
+          <button class="action primary" id="applyAlbums" type="button" disabled>Use selected</button>
+        </div>
+        <p class="picker-credit">Search metadata by <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · artwork from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a></p>
+      </div>
     </div>
   </dialog>
 
@@ -731,15 +755,17 @@
             <option value="short_term">About four weeks</option>
           </select>
         </label>
-        <p class="spotify-note">Add this exact Redirect URI to your Spotify app:</p>
-        <div class="redirect-box" id="spotifyRedirect"></div>
+        <div id="spotifySetup"><p class="spotify-note">Add this exact Redirect URI to your Spotify app:</p>
+        <div class="redirect-box" id="spotifyRedirect"></div></div>
+        <label class="range-consent"><input id="spotifyOtherRanges" type="checkbox" checked> Include other listening periods if fewer than 60 unique albums are found</label>
         <button class="action primary" type="submit">Continue to Spotify</button>
-        <p class="spotify-note">Development Mode supports up to five allowlisted Spotify users. Never paste a Client Secret here.</p>
+        <p class="spotify-note">Spotify beta: only accounts approved by the owner can import. Manual album selection is open to everyone.</p>
       </form>
     </div>
   </dialog>
 
   <script src="top-songs.js"></script>
+  <script src="core.js"></script>
   <script>
     (() => {
       const palette = [
@@ -750,12 +776,13 @@
       ];
 
       const $ = (id) => document.getElementById(id);
+      const C = window.CornerstoneCore;
       const SPOTIFY_CLIENT_ID = '3373b0d8342c4805b6662861c8f47427';
       const query = new URLSearchParams(window.location.search);
       const wallpaperMode = query.has('wallpaper');
       const initialMode = query.get('mode') === 'albums' ? 'albums' : 'colors';
-      if (wallpaperMode) document.body.classList.add('wallpaper-mode');
-      const chartAlbums = [...(window.TOP_SONGS || [])];
+      if (wallpaperMode) { document.body.classList.add('wallpaper-mode'); document.body.classList.remove('onboarding'); }
+      const chartAlbums = C.unique(window.TOP_SONGS || []);
       let savedAlbums = [];
       try {
         const saved = JSON.parse(localStorage.getItem('cornerstone-albums') || localStorage.getItem('tilewall-albums') || '[]');
@@ -775,7 +802,8 @@
         phone: false,
         colors: [],
         albums: startingAlbums,
-        customAlbums: savedAlbums.length >= 4
+        customAlbums: savedAlbums.length >= 4,
+        arrangement: 'original', colorPreference: '#d78c56', randomSeed: 1
       };
 
       let flipTimer = null;
@@ -783,6 +811,10 @@
       let albumSearchResults = [];
       let artistSearchResults = [];
       let draftAlbums = [];
+      let draftCornerSlots = [null, null, null, null]; // visible TL, TR, BL, BR; saved albums stay clockwise
+      let cornerstoneTarget = null;
+      let searchController = null;
+      let searchSequence = 0;
 
       function shuffledColors(count) {
         const pool = [...palette].sort(() => Math.random() - .5);
@@ -795,19 +827,7 @@
         const aspect = measuredAspect || (state.phone ? 9 / 18.5 : 16 / 10);
         const targets = [8, 12, 24, 40, 60];
         const available = state.mode === 'albums' ? Math.min(60, state.albums.length) : 60;
-        const target = Math.min(targets[state.detail - 1], available);
-        let best = null;
-        for (let rows = 2; rows <= 15; rows++) {
-          for (let columns = 2; columns <= 24; columns++) {
-            const count = rows * columns;
-            if (count < 4 || count > available) continue;
-            const shapeError = Math.abs(Math.log((columns / rows) / aspect));
-            const countError = Math.abs(count - target) / Math.max(target, 1);
-            const score = shapeError * 1.8 + countError;
-            if (!best || score < best.score) best = { columns, rows, count, score };
-          }
-        }
-        return best || { columns: 2, rows: 2, count: 4 };
+        return C.shape(aspect, available, targets[state.detail - 1]);
       }
 
       function tilePaint(color, index, offset = 0) {
@@ -870,6 +890,7 @@
         backImage.crossOrigin = 'anonymous';
         backImage.src = next.art;
         backImage.alt = `${next.title} by ${next.artist}`;
+        [frontImage,backImage].forEach(image=>{image.decoding='async';image.addEventListener('error',()=>{image.hidden=true;const label=document.createElement('span');label.className='cover-fallback';label.textContent=image.alt+' · Cover unavailable';image.parentElement?.append(label);},{once:true});});
         tile.querySelector('.front').append(frontImage);
         tile.querySelector('.back').append(backImage);
         prepareWave(tile, index, columns, rows, wave);
@@ -877,15 +898,7 @@
       }
 
       function arrangeWithCornerstones(items, count, columns) {
-        const output = Array(count);
-        const corners = cornerIndexes(count, columns);
-        items.slice(0, 4).forEach((item, index) => { output[corners[index]] = item; });
-        const rest = items.slice(4);
-        let cursor = 0;
-        for (let index = 0; index < count; index++) {
-          if (!output[index]) output[index] = rest[cursor++];
-        }
-        return output;
+        return C.arrange(items, count, columns, state.mode === 'albums' ? state.arrangement : 'original', state.colorPreference, state.randomSeed);
       }
 
       function renderGrid({ wave = false, refreshBleed = false } = {}) {
@@ -913,6 +926,7 @@
         updateFrame({ refreshBleed });
         updateLabel();
         restartMotion();
+        window.CornerstoneStudio?.changed();
       }
 
       const samplePoints = [3, 13, 17, 28, 36, 49, 59];
@@ -928,7 +942,6 @@
         while (chosen.length < 7) chosen.push(chosen[chosen.length % colors.length] || palette[chosen.length % palette.length]);
         const root = document.documentElement;
         chosen.slice(0, 7).forEach((color, index) => root.style.setProperty(`--ambient-${index + 1}`, color));
-        ['a', 'b', 'c', 'd'].forEach((key, index) => $('screen').style.setProperty(`--bleed-${key}`, chosen[index]));
         root.style.setProperty('--accent', chosen[4]);
         root.style.setProperty('--accent-ink', readableInk(chosen[4]));
       }
@@ -975,14 +988,27 @@
         }, 60000);
       }
 
+      let frameColorRevision = 0;
+      function applyFrameColors(colors) {
+        ['a', 'b', 'c', 'd'].forEach((key, index) => {
+          const color = colors[index];
+          $('screen').style.setProperty(`--bleed-${key}`, Array.isArray(color) ? `rgb(${C.vividColor(color).join(',')})` : color || '#838996');
+        });
+      }
       function updateFrame({ refreshBleed = false } = {}) {
         const screen = $('screen');
+        const colorRevision = ++frameColorRevision;
         const previewScale = state.phone ? 18 : 24;
         const width = state.frame === 'none' ? 0 : state.frameInches * previewScale;
         screen.style.setProperty('--frame-size', `${width}px`);
-        screen.style.setProperty('--glass-tint', state.frame === 'smoke' ? 'rgba(8,10,15,.58)' : 'rgba(248,250,255,.38)');
+        screen.style.setProperty('--glass-tint', state.frame === 'smoke' ? 'rgba(8,10,15,.25)' : 'rgba(248,250,255,.17)');
         screen.classList.toggle('album-bleed', state.mode === 'albums' && state.albums.length > 0);
         if (state.mode === 'albums' && state.albums.length) {
+          const cornerAlbums = C.cornerToStorage.map(index => state.albums[index]);
+          applyFrameColors(cornerAlbums.map(album => album?.color));
+          void Promise.all(cornerAlbums.map(album => album ? C.analyze(album) : null)).then(colors => {
+            if (colorRevision === frameColorRevision && state.mode === 'albums') applyFrameColors(colors);
+          });
           if (refreshBleed || screen.dataset.ambientMode !== 'albums') void refreshAlbumBleed();
           screen.dataset.ambientMode = 'albums';
           restartAlbumBleedTimer();
@@ -991,6 +1017,7 @@
           const bleed = state.colors.length ? state.colors : palette;
           const fixed = samplePoints.map((index) => bleed[index]).filter(Boolean);
           applyAmbientColors(fixed.length ? fixed : bleed.slice(0, 7));
+          applyFrameColors(bleed.slice(0, 4));
           screen.dataset.ambientMode = 'colors';
         }
         $('frameSize').disabled = state.frame === 'none';
@@ -1011,7 +1038,7 @@
       function flipOne() {
         const allTiles = [...document.querySelectorAll('.tile')];
         const tiles = allTiles.filter((candidate) => candidate.dataset.pinned !== 'true' && !candidate.classList.contains('is-flipping'));
-        if (!tiles.length || !state.motion) return;
+        if (!tiles.length || !state.motion || document.hidden || document.body.classList.contains('onboarding')) return;
         const tile = tiles[Math.floor(Math.random() * tiles.length)];
         const back = tile.querySelector('.back');
         const index = Number(tile.dataset.index);
@@ -1020,6 +1047,13 @@
         if (state.mode === 'albums') {
           const visibleArt = new Set(allTiles.map((candidate) => candidate.dataset.art));
           const choices = state.albums.filter((album) => !visibleArt.has(album.art));
+          if (state.arrangement !== 'random') {
+            tile.classList.add('is-flipping');
+            const backImage=back.querySelector('img');
+            backImage.src=tile.querySelector('.front img').src;
+            window.setTimeout(()=>tile.classList.remove('is-flipping'),flipDuration());
+            return;
+          }
           if (!choices.length && allTiles.length > 1) {
             const partners = tiles.filter((candidate) => candidate !== tile);
             const partner = partners[Math.floor(Math.random() * partners.length)];
@@ -1081,7 +1115,7 @@
 
       function restartMotion() {
         window.clearInterval(flipTimer);
-        if (!state.motion) return;
+        if (!state.motion || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         updateFlipDuration();
         flipTimer = window.setInterval(flipOne, 3200);
       }
@@ -1130,9 +1164,9 @@
 
       $('shuffle').addEventListener('click', () => {
         if (state.mode === 'albums') {
-          const anchors = state.albums.slice(0, 4);
-          const moving = state.albums.slice(4).sort(() => Math.random() - .5);
-          state.albums = anchors.concat(moving);
+          state.arrangement = 'random';
+          state.randomSeed = Date.now();
+          if ($('arrangement')) $('arrangement').value='random';
         } else {
           const anchors = state.colors.slice(0, 4);
           const moving = shuffledColors(Math.max(0, state.count - 4));
@@ -1141,9 +1175,29 @@
         renderGrid({ wave: true, refreshBleed: state.mode === 'albums' });
       });
 
+      const sameDraftAlbum = (a, b) => !!a && !!b && C.identity(a) === C.identity(b);
+      function syncDraftOrder() {
+        const fixed = [draftCornerSlots[0], draftCornerSlots[1], draftCornerSlots[3], draftCornerSlots[2]].filter(Boolean);
+        const fixedIds = new Set(fixed.map(C.identity));
+        draftAlbums = C.unique(fixed.concat(draftAlbums.filter(album => !fixedIds.has(C.identity(album)))));
+      }
+      function removeDraftAlbum(album) {
+        draftAlbums = draftAlbums.filter(choice => !sameDraftAlbum(choice, album));
+        draftCornerSlots = draftCornerSlots.map(choice => sameDraftAlbum(choice, album) ? null : choice);
+        syncDraftOrder();
+      }
+      function addDraftAlbum(album) {
+        if (draftAlbums.length >= 60) return;
+        const empty = draftCornerSlots.findIndex(choice => !choice);
+        if (empty >= 0) draftCornerSlots[empty] = album;
+        draftAlbums.push(album);
+        syncDraftOrder();
+      }
       function updateDraftCount() {
-        $('albumSelectionCount').textContent = `${draftAlbums.length} selected`;
-        $('applyAlbums').disabled = draftAlbums.length < 4;
+        $('albumSelectionCount').textContent = `${draftAlbums.length} / 60 selected`;
+        $('pickerRackCount').textContent = `${draftAlbums.length} / 60`;
+        $('applyAlbums').disabled = draftCornerSlots.some(choice => !choice);
+        window.CornerstoneStudio?.draftChanged(draftAlbums, draftCornerSlots.slice());
         const shelf = $('selectedShelf');
         shelf.replaceChildren();
         draftAlbums.forEach((album, index) => {
@@ -1152,18 +1206,36 @@
           button.className = 'selected-mini';
           button.title = `Remove ${album.title}`;
           const image = new Image();
+          image.loading = 'lazy'; image.decoding = 'async';
           image.src = album.thumb || album.art;
           image.alt = album.title;
           const badge = document.createElement('span');
-          badge.textContent = index < 4 ? `C${index + 1}` : `${index + 1}`;
+          const position = draftCornerSlots.findIndex(choice => sameDraftAlbum(choice, album));
+          badge.textContent = position >= 0 ? `C${position + 1}` : `${index + 1}`;
           button.append(image, badge);
           button.addEventListener('click', () => {
-            draftAlbums.splice(index, 1);
+            removeDraftAlbum(album);
             renderAlbumResults();
             updateDraftCount();
           });
           shelf.append(button);
         });
+      }
+
+      function placeCornerstone(album) {
+        const target = cornerstoneTarget, previous = draftCornerSlots[target];
+        const source = draftCornerSlots.findIndex(choice => sameDraftAlbum(choice, album));
+        const alreadySelected = draftAlbums.some(choice => sameDraftAlbum(choice, album));
+        if (source >= 0 && source !== target) {
+          draftCornerSlots[source] = previous;
+          draftCornerSlots[target] = album;
+        } else if (source < 0) {
+          if (!alreadySelected && draftAlbums.length >= 60 && previous) removeDraftAlbum(previous);
+          draftCornerSlots[target] = album;
+          if (!alreadySelected) draftAlbums.push(album);
+        }
+        syncDraftOrder();
+        cornerstoneTarget = null;
       }
 
       function renderAlbumResults() {
@@ -1173,24 +1245,27 @@
           const card = document.createElement('button');
           card.type = 'button';
           card.className = 'album-card';
-          const selected = draftAlbums.some((choice) => choice.id === album.id);
-          const selectedIndex = draftAlbums.findIndex((choice) => choice.id === album.id);
+          const selected = draftAlbums.some((choice) => C.identity(choice) === C.identity(album));
+          const selectedIndex = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
+          const selectedCorner = draftCornerSlots.findIndex(choice => sameDraftAlbum(choice, album));
           card.setAttribute('aria-pressed', String(selected));
-          if (selectedIndex >= 0) card.dataset.pick = selectedIndex < 4 ? `Corner ${selectedIndex + 1}` : `${selectedIndex + 1}`;
+          if (selectedIndex >= 0) card.dataset.pick = selectedCorner >= 0 ? `Corner ${selectedCorner + 1}` : `${selectedIndex + 1}`;
           const image = new Image();
           image.crossOrigin = 'anonymous';
           image.src = album.thumb || album.art;
           image.alt = '';
-          image.addEventListener('error', () => card.remove(), { once: true });
+          image.loading = 'lazy'; image.decoding = 'async';
+          image.addEventListener('error', () => { image.hidden=true; card.classList.add('missing-art'); card.title='Artwork unavailable. You can upload a cover below.'; }, { once: true });
           const title = document.createElement('strong');
           title.textContent = album.title;
           const artist = document.createElement('span');
           artist.textContent = [album.artist, album.year].filter(Boolean).join(' · ');
           card.append(image, title, artist);
           card.addEventListener('click', () => {
-            const existing = draftAlbums.findIndex((choice) => choice.id === album.id);
-            if (existing >= 0) draftAlbums.splice(existing, 1);
-            else if (draftAlbums.length < 60) draftAlbums.push(album);
+            const existing = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
+            if (cornerstoneTarget !== null) placeCornerstone(album);
+            else if (existing >= 0) removeDraftAlbum(album);
+            else addDraftAlbum(album);
             renderAlbumResults();
             updateDraftCount();
           });
@@ -1217,72 +1292,82 @@
       }
 
       async function loadArtistAlbums(artist) {
-        $('albumSearchStatus').textContent = `Loading official albums and EPs by ${artist.name}…`;
+        searchController?.abort(); searchController=new AbortController();
+        const serial=++searchSequence;
+        $('albumSearchStatus').textContent = `Loading albums and EPs by ${artist.name}…`;
         $('albumResults').replaceChildren();
         try {
-          const response = await fetch(`https://musicbrainz.org/ws/2/release-group?artist=${encodeURIComponent(artist.id)}&type=album%7Cep&release-group-status=website-default&fmt=json&limit=25`);
-          if (!response.ok) throw new Error('Albums unavailable');
-          const payload = await response.json();
-          const excluded = new Set(['Compilation', 'Live', 'Remix', 'DJ-mix', 'Mixtape/Street', 'Soundtrack', 'Interview', 'Audiobook']);
-          const seen = new Set();
-          albumSearchResults = (payload['release-groups'] || [])
-            .filter((group) => ['Album', 'EP'].includes(group['primary-type']))
-            .filter((group) => !(group['secondary-types'] || []).some((type) => excluded.has(type)))
-            .map((group) => ({
-              id: group.id,
-              title: group.title,
-              artist: artist.name,
-              year: group['first-release-date']?.slice(0, 4) || group['primary-type'],
-              art: `https://coverartarchive.org/release-group/${group.id}/front-500`,
-              thumb: `https://coverartarchive.org/release-group/${group.id}/front-250`,
-              source: `https://musicbrainz.org/release-group/${group.id}`
-            }))
-            .filter((album) => album.id && album.title && !seen.has(album.id) && seen.add(album.id))
-            .sort((a, b) => String(b.year).localeCompare(String(a.year)));
+          const results=await C.albums(artist,searchController.signal, partial=>{
+            if(serial!==searchSequence)return;
+            albumSearchResults=partial;
+            $('albumResults').classList.remove('artist-results');
+            renderAlbumResults();
+            $('albumSearchStatus').textContent=`Albums by ${artist.name}. More results and covers are loading…`;
+          });
+          if(serial!==searchSequence)return;
+          albumSearchResults=results;
           $('albumResults').classList.remove('artist-results');
           renderAlbumResults();
-          $('albumSearchStatus').textContent = albumSearchResults.length
-            ? `Showing official albums and EPs by ${artist.name}. Your first four picks become the corners.`
-            : `No official album covers were found for ${artist.name}. Try the manual cover option below.`;
-        } catch (_) {
-          $('albumSearchStatus').textContent = 'The album catalog is temporarily unavailable. Please try again.';
-        }
+          $('albumSearchStatus').textContent=results.length ? `Albums by ${artist.name}. Covers arrive as they load.` : 'No albums found. You can upload a cover below.';
+        } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
       }
 
-      $('chooseAlbums').addEventListener('click', () => {
-        draftAlbums = state.customAlbums ? state.albums.map((album) => ({ ...album })) : [];
-        albumSearchResults = [];
-        artistSearchResults = [];
+      function openPicker(albums, cornerIndices) {
+        draftAlbums = C.unique(albums || (state.customAlbums ? state.albums : []));
+        draftCornerSlots = C.cornerToStorage.map((index, position) => {
+          const savedIndex = Array.isArray(cornerIndices) ? cornerIndices[position] : index;
+          return Number.isInteger(savedIndex) && savedIndex >= 0 ? draftAlbums[savedIndex] || null : null;
+        });
+        syncDraftOrder();
+        cornerstoneTarget = null;
+        albumSearchResults=[]; artistSearchResults=[];
         $('albumResults').classList.remove('artist-results');
         $('albumResults').replaceChildren();
-        $('albumSearchStatus').textContent = 'Find an artist first. Your first four choices become Corner 1–4, clockwise.';
+        $('albumSearchStatus').textContent='Find an artist. Start with four albums that define your wall.';
         updateDraftCount();
-        $('albumDialog').showModal();
-        $('albumSearch').focus();
-      });
-
-      $('closeAlbumDialog').addEventListener('click', () => $('albumDialog').close());
-
-      $('albumSearchForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const term = $('albumSearch').value.trim();
-        if (!term) return;
-        $('albumSearchStatus').textContent = 'Finding matching artists…';
-        $('albumResults').replaceChildren();
+        const dialog=$('albumDialog');dialog.classList.remove('is-closing');dialog.showModal();
+        updatePickerViewport();
+        (matchMedia('(max-width:600px)').matches?$('albumDialogTitle'):$('albumSearch')).focus();
+      }
+      $('chooseAlbums').addEventListener('click', () => openPicker());
+      let pickerCloseTimer;
+      function closePicker(){
+        const dialog=$('albumDialog');if(!dialog.open||dialog.classList.contains('is-closing'))return;
+        if(matchMedia('(prefers-reduced-motion: reduce)').matches){dialog.close();return;}
+        dialog.classList.add('is-closing');
+        pickerCloseTimer=setTimeout(()=>{dialog.close();dialog.classList.remove('is-closing');},170);
+      }
+      function updatePickerViewport(){
+        const viewport=window.visualViewport;
+        if(!viewport)return;
+        $('albumDialog').style.setProperty('--picker-visible-height',`${viewport.height}px`);
+        $('albumDialog').style.setProperty('--picker-offset-top',`${viewport.offsetTop}px`);
+      }
+      window.visualViewport?.addEventListener('resize',updatePickerViewport);
+      window.visualViewport?.addEventListener('scroll',updatePickerViewport);
+      $('closeAlbumDialog').addEventListener('click',closePicker);
+      $('backAlbumDialog').addEventListener('click',closePicker);
+      $('albumDialog').addEventListener('cancel',event=>{event.preventDefault();closePicker();});
+      async function searchArtists() {
+        const term=$('albumSearch').value.trim();
+        searchController?.abort(); searchController=new AbortController();
+        const serial=++searchSequence;
+        if(term.length<2)return;
+        $('albumSearchStatus').textContent='Finding artists…';
         try {
-          const response = await fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(`artist:"${term.replaceAll('"', '')}"`)}&fmt=json&limit=8`);
-          if (!response.ok) throw new Error('Search unavailable');
-          const payload = await response.json();
-          const seen = new Set();
-          artistSearchResults = (payload.artists || [])
-            .filter((artist) => artist.id && artist.name && !seen.has(artist.id) && seen.add(artist.id))
-            .map((artist) => ({ id: artist.id, name: artist.name, disambiguation: artist.disambiguation, country: artist.country, type: artist.type }));
-          renderArtistResults();
-          $('albumSearchStatus').textContent = artistSearchResults.length ? 'Choose the correct artist.' : 'No artists found. Try another spelling.';
-        } catch (_) {
-          $('albumSearchStatus').textContent = 'Artist search is temporarily unavailable. Please try again.';
-        }
+          const result=await C.artists(term,searchController.signal);
+          if(serial!==searchSequence)return;
+          artistSearchResults=result; renderArtistResults();
+          $('albumSearchStatus').textContent=result.length?'Choose the correct artist.':'No matching artists. Try another spelling.';
+        } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
+      }
+      let searchDebounce;
+      $('albumSearch').addEventListener('input',()=>{
+        clearTimeout(searchDebounce);searchController?.abort();++searchSequence;
+        searchDebounce=setTimeout(searchArtists,550);
       });
+      $('albumSearchForm').addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchDebounce);void searchArtists();});
+      $('albumDialog').addEventListener('close',()=>{clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
 
       async function manualArtworkData(file) {
         const url = URL.createObjectURL(file);
@@ -1306,7 +1391,7 @@
       $('manualAlbumForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const file = $('manualArtwork').files?.[0];
-        if (!file || draftAlbums.length >= 60) return;
+        if (!file || (draftAlbums.length >= 60 && cornerstoneTarget === null)) return;
         $('albumSearchStatus').textContent = 'Preparing your cover…';
         try {
           const album = {
@@ -1316,7 +1401,7 @@
             year: 'Your artwork',
             art: await manualArtworkData(file)
           };
-          draftAlbums.push(album);
+          if(cornerstoneTarget!==null)placeCornerstone(album);else addDraftAlbum(album);
           albumSearchResults.unshift(album);
           $('albumResults').classList.remove('artist-results');
           renderAlbumResults();
@@ -1345,6 +1430,7 @@
         $('spotifyClientId').value = SPOTIFY_CLIENT_ID || localStorage.getItem('cornerstone-spotify-client-id') || '';
         $('spotifyClientIdField').hidden = Boolean(SPOTIFY_CLIENT_ID);
         $('spotifyRedirect').textContent = spotifyRedirectUri();
+        $('spotifySetup').hidden = Boolean(SPOTIFY_CLIENT_ID);
         $('spotifyDialog').showModal();
       });
 
@@ -1361,6 +1447,8 @@
         localStorage.setItem('cornerstone-spotify-verifier', verifier);
         localStorage.setItem('cornerstone-spotify-state', authState);
         localStorage.setItem('cornerstone-spotify-range', $('spotifyRange').value);
+        localStorage.setItem('cornerstone-spotify-other-ranges', String($('spotifyOtherRanges').checked));
+        await window.CornerstoneStudio?.save();
         localStorage.setItem('cornerstone-spotify-redirect', redirectUri);
         const auth = new URL('https://accounts.spotify.com/authorize');
         auth.search = new URLSearchParams({
@@ -1394,6 +1482,7 @@
         const redirectUri = localStorage.getItem('cornerstone-spotify-redirect') || spotifyRedirectUri();
         if (!verifier || !clientId || returnedState !== expectedState) {
           $('screenLabel').textContent = 'Spotify connection could not be verified';
+          window.CornerstoneStudio?.importFailed('This Spotify sign-in expired or could not be verified. Please connect again.');
           return;
         }
         $('screenLabel').textContent = 'Importing your Spotify albums…';
@@ -1406,55 +1495,23 @@
           if (!tokenResponse.ok) throw new Error('Spotify token unavailable');
           const token = await tokenResponse.json();
           const range = localStorage.getItem('cornerstone-spotify-range') || 'long_term';
-          const topResponse = await fetch(`https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=${range}`, { headers: { Authorization: `Bearer ${token.access_token}` } });
-          if (!topResponse.ok) throw new Error('Spotify top tracks unavailable');
-          const payload = await topResponse.json();
-          const seen = new Set();
-          const albums = (payload.items || []).map((entry) => entry.item || entry).map((track) => track.album).filter(Boolean).filter((album) => !seen.has(album.id) && seen.add(album.id)).map((album) => {
-            const images = album.images || [];
-            const art = images.find((image) => image.width >= 500)?.url || images[0]?.url;
-            const thumb = images.find((image) => image.width >= 250 && image.width < 500)?.url || art;
-            return { id: `spotify-${album.id}`, title: album.name, artist: (album.artists || []).map((artist) => artist.name).join(' & '), year: album.release_date?.slice(0, 4), art, thumb, source: 'spotify' };
-          }).filter((album) => album.art).slice(0, 60);
-          if (albums.length < 4) throw new Error('Not enough unique albums were returned');
-          state.albums = albums;
-          state.customAlbums = true;
-          state.mode = 'albums';
-          localStorage.setItem('cornerstone-albums', JSON.stringify(albums));
-          document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === 'albums')));
-          renderGrid({ wave: true, refreshBleed: true });
-          $('screenLabel').textContent = `${albums.length} Spotify albums imported · four cornerstones`;
+          const result=await C.importSpotify(token.access_token,range,localStorage.getItem('cornerstone-spotify-other-ranges')!=='false',count=>window.CornerstoneStudio?.importProgress(count));
+          if(!result.albums.length)throw new Error('Spotify did not return albums for this account. You can choose albums manually.');
+          state.albums=result.albums; state.customAlbums=true; state.mode='albums';
+          await window.CornerstoneStudio?.imported(result);
+
         } catch (importError) {
           $('screenLabel').textContent = importError.message || 'Spotify import failed';
+          window.CornerstoneStudio?.importFailed(importError.message);
         } finally {
           ['cornerstone-spotify-verifier', 'cornerstone-spotify-state', 'cornerstone-spotify-redirect'].forEach((key) => localStorage.removeItem(key));
         }
       }
 
       function exportShape(aspect, available) {
-        const targets = [8, 12, 24, 40, 60];
-        const target = Math.min(targets[state.detail - 1], available);
-        let best = null;
-        for (let rows = 2; rows <= 18; rows++) {
-          for (let columns = 2; columns <= 12; columns++) {
-            const count = rows * columns;
-            if (count < 4 || count > available) continue;
-            const score = Math.abs(Math.log((columns / rows) / aspect)) * 1.8 + Math.abs(count - target) / target;
-            if (!best || score < best.score) best = { columns, rows, count, score };
-          }
-        }
-        return best || { columns: 2, rows: 2, count: 4 };
+        return C.shape(aspect, available, [8,12,24,40,60][state.detail-1]);
       }
-
-      function exportImage(source) {
-        return new Promise((resolve, reject) => {
-          const image = new Image();
-          image.crossOrigin = 'anonymous';
-          image.onload = () => resolve(image);
-          image.onerror = reject;
-          image.src = source;
-        });
-      }
+      const exportImage = C.loadImage;
 
       function drawCover(context, image, x, y, width, height) {
         const imageAspect = image.naturalWidth / image.naturalHeight;
@@ -1479,10 +1536,15 @@
           const context = canvas.getContext('2d');
           context.fillStyle = state.frame === 'smoke' ? '#17171c' : '#e8e5df';
           context.fillRect(0, 0, width, height);
+          if (state.mode === 'albums' && state.frame !== 'none') await Promise.all(C.cornerToStorage.map(index => state.albums[index] ? C.analyze(state.albums[index]) : null));
+          window.CornerstoneStudio?.drawFrame(context,width,height);
           const cellWidth = innerWidth / shape.columns, cellHeight = innerHeight / shape.rows;
           if (state.mode === 'albums') {
             const arranged = arrangeWithCornerstones(state.albums, shape.count, shape.columns);
-            const images = await Promise.all(arranged.map((album) => exportImage(album.art)));
+          const images = await Promise.all(arranged.map(async (album) => {
+            try { return await exportImage(album.art); }
+            catch (_) { if(album.thumb && album.thumb!==album.art)try{return await exportImage(album.thumb);}catch(_){} throw new Error(`“${album.title}” could not be downloaded. Replace its cover or upload your own image, then save again.`); }
+          }));
             images.forEach((image, index) => drawCover(context, image, frame + (index % shape.columns) * cellWidth, frame + Math.floor(index / shape.columns) * cellHeight, cellWidth + .5, cellHeight + .5));
           } else {
             const colors = state.colors.slice();
@@ -1496,9 +1558,9 @@
           link.href = URL.createObjectURL(blob);
           link.download = `cornerstone-${label}-${Date.now()}.png`;
           link.click();
-          window.setTimeout(() => URL.revokeObjectURL(link.href), 1500);
-        } catch (_) {
-          alert('One of these covers could not be exported. Try another album set or use manually uploaded artwork.');
+          window.setTimeout(() => URL.revokeObjectURL(link.href), 30000);
+        } catch (error) {
+          alert(error.message || 'One of these covers could not be exported. Try another album set or use manually uploaded artwork.');
         } finally {
           button.disabled = false;
           button.textContent = original;
@@ -1509,22 +1571,20 @@
       $('saveDesktop').addEventListener('click', () => saveWallpaper($('saveDesktop'), 3840, 2160, 'desktop'));
 
       $('applyAlbums').addEventListener('click', () => {
-        if (draftAlbums.length < 4) return;
-        state.albums = draftAlbums.slice(0, 60);
+        if (draftCornerSlots.some(choice => !choice)) return;
+        syncDraftOrder();
+        state.albums = C.unique(draftAlbums);
         state.customAlbums = true;
         state.mode = 'albums';
-        try {
-          localStorage.setItem('cornerstone-albums', JSON.stringify(state.albums));
-        } catch (_) {
-          $('albumSearchStatus').textContent = 'The wall is ready, but these images are too large for permanent browser storage.';
-        }
+        void window.CornerstoneStudio?.save();
         document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === 'albums')));
-        $('albumDialog').close();
+        closePicker();
         renderGrid({ wave: true, refreshBleed: true });
+        window.CornerstoneStudio?.enterEditor();
       });
 
       $('resetChart').addEventListener('click', () => {
-        state.albums = [...chartAlbums].sort(() => Math.random() - .5);
+        state.albums = C.unique([...chartAlbums].sort(() => Math.random() - .5));
         state.customAlbums = false;
         state.mode = 'albums';
         try {
@@ -1532,9 +1592,11 @@
           localStorage.removeItem('tilewall-albums');
         } catch (_) {}
         document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === 'albums')));
-        $('albumDialog').close();
+        closePicker();
         renderGrid({ wave: true, refreshBleed: true });
       });
+      // The fixture reset is available only on a local development URL with an explicit flag.
+      if (['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('dev')) $('resetChart').hidden = false;
 
       $('fullscreen').addEventListener('click', async () => {
         try {
@@ -1616,11 +1678,21 @@
         } catch (_) {}
       }
 
+      window.CornerstoneApp = {
+        state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount,
+        getDraft:()=>draftAlbums,
+        setDraft:items=>{draftAlbums=C.unique(items);draftCornerSlots=C.cornerToStorage.map(index=>draftAlbums[index]||null);renderAlbumResults();updateDraftCount();},
+        targetCorner:position=>{cornerstoneTarget=position; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
+        finishSpotifyImport,
+        setAlbums:items=>{state.albums=C.unique(items);state.customAlbums=true;state.mode='albums';state.detail=5;if(state.albums.length>=4)renderGrid({wave:true,refreshBleed:true});},
+        saveWallpaper
+      };
       state.colors = shuffledColors(state.count);
       renderGrid({ wave: true });
       updateFrame();
-      void finishSpotifyImport();
+      // Studio restores the local project before completing an OAuth callback.
     })();
   </script>
+  <script src="studio.js"></script>
 </body>
 </html>
