@@ -1423,6 +1423,7 @@
       }
 
       function openPicker(albums, cornerIndices) {
+        window.CornerstoneStudio?.cancelReveal();
         cancelRackAnimation();
         closeSelectedCollection();
         draftAlbums = C.unique(albums || (state.customAlbums ? state.albums : []));
@@ -1697,8 +1698,8 @@
         void window.CornerstoneStudio?.save();
         document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === 'albums')));
         closePicker();
-        renderGrid({ wave: true, refreshBleed: true });
-        window.CornerstoneStudio?.enterEditor();
+        renderGrid({ refreshBleed: true });
+        window.CornerstoneStudio?.enterEditor({ reveal: true });
       });
 
       $('resetChart').addEventListener('click', () => {
@@ -1726,6 +1727,7 @@
       });
 
       function setDevice(phone) {
+        window.CornerstoneStudio?.cancelReveal();
         state.phone = phone;
         $('screenShell').classList.toggle('phone', phone);
         $('desktopView').setAttribute('aria-pressed', String(!phone));
@@ -1769,7 +1771,7 @@
           $('motionStatus').textContent = state.motion ? 'Motion is on' : 'Motion is off';
         }
         updateFrame();
-        renderGrid({ wave: input.mode !== undefined, refreshBleed: input.mode !== undefined && state.mode === 'albums' });
+        renderGrid({ wave: input.wave ?? (input.mode !== undefined), refreshBleed: input.mode !== undefined && state.mode === 'albums' });
         return { detail: state.detail, count: state.count, columns: state.columns, rows: state.rows, mode: state.mode, frame: state.frame, motion: state.motion };
       }
 

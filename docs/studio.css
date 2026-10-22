@@ -6,6 +6,23 @@
 @property --outer-corner-3 { syntax:"<color>"; inherits:true; initial-value:transparent; }
 @property --outer-corner-4 { syntax:"<color>"; inherits:true; initial-value:transparent; }
 @property --outer-intensity { syntax:"<percentage>"; inherits:true; initial-value:75%; }
+@property --melt-progress { syntax:"<percentage>"; inherits:false; initial-value:0%; }
+.wall-reveal {
+  position:absolute; inset:var(--frame-size,0px); z-index:2; pointer-events:none;
+  background:rgba(105,113,125,.27);
+  -webkit-backdrop-filter:blur(26px) saturate(.68);
+  backdrop-filter:blur(26px) saturate(.68);
+  transform:translateZ(0);
+}
+.wall-reveal.is-clearing { animation:wall-reveal-fade 1.35s ease-in-out both; }
+.wall-reveal.is-clearing.is-radial {
+  -webkit-mask-image:radial-gradient(circle farthest-corner at center,transparent calc(var(--melt-progress) - 13%),#000 var(--melt-progress));
+  mask-image:radial-gradient(circle farthest-corner at center,transparent calc(var(--melt-progress) - 13%),#000 var(--melt-progress));
+  animation:wall-reveal-melt 1.35s cubic-bezier(.38,0,.18,1) both;
+}
+@keyframes wall-reveal-melt { from { --melt-progress:0%; } to { --melt-progress:116%; } }
+@keyframes wall-reveal-fade { from { opacity:1; } to { opacity:0; } }
+@media(prefers-reduced-motion:reduce){.wall-reveal{display:none!important}}
 .outer-website-frame {
   --outer-frame-width:11px; --outer-overscan:10px; --outer-radius:32px;
   position:fixed; inset:0; z-index:2147483646; pointer-events:none; overflow:hidden;
