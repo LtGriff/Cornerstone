@@ -3,6 +3,18 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
 function covers(){return Array.from({length:80},(_,i)=>{const c=document.createElement('canvas');c.width=c.height=80;const x=c.getContext('2d');x.fillStyle=`hsl(${i*31%360} 48% 42%)`;x.fillRect(0,0,80,80);x.fillStyle='white';x.font='22px sans-serif';x.fillText(i+1,10,44);return{id:'qa-'+i,title:'Test Album '+(i+1),artist:'Test Artist '+(i%3),art:c.toDataURL(),color:[i*31%256,i*67%256,i*97%256]};});}
 function fixture(w){const all=covers(),albums=all.slice(0,45),artists=[{name:'Test Artist 0',weight:8},{name:'Test Artist 1',weight:4},{name:'Test Artist 2',weight:3}];w.CornerstoneApp.setAlbums(albums);return{albums,artists,pools:artists.map((_,j)=>all.slice(45).filter((a,i)=>i%3===j)),stats:{tracks:72,pages:3,limited:false}};}
 document.getElementById('recommend').onclick=async()=>{const w=frame.contentWindow;await w.CornerstoneStudio.imported(fixture(w));result.textContent='45 imported albums; 15 suggested albums shown. Use the real controls below.';};
+document.getElementById('preview').onclick=async()=>{
+ await new Promise(resolve=>{frame.onload=resolve;frame.src='/?qa-preview='+Date.now();});
+ const w=frame.contentWindow,d=w.document,all=covers(),C=w.CornerstoneCore;
+ C.artists=async()=>[{id:'qa-artist',name:'Test Artist'}];
+ C.albums=async(_artist,_signal,onPage)=>{onPage(all.slice(0,24));return all.slice(0,24);};
+ w.CornerstoneApp.openPicker(all.slice(0,4));
+ d.getElementById('albumSearch').value='Test Artist';
+ d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+ await pause(20);d.querySelector('#albumResults .artist-choice')?.click();
+ result.textContent='Local visual fixture: four cornerstones and 24 synthetic album covers.';
+};
+document.getElementById('previewTheme').onclick=()=>frame.contentDocument.getElementById('themeToggle').click();
 document.getElementById('run').onclick=async()=>{
  result.textContent='';const log=s=>result.textContent+=s+'\n',assert=(ok,name)=>{if(!ok)throw Error(name);log('PASS '+name);};
  try{
@@ -73,6 +85,8 @@ document.getElementById('run').onclick=async()=>{
  assert([...d.querySelectorAll('#cornerSlots button')].every((slot,i)=>slot.dataset.cornerPosition===String(i+1)&&slot.dataset.albumIndex===String([0,1,3,2][i])&&slot.textContent.includes(`${i+1} · `)),'Visible cornerstones read 1–4 while saved clockwise album mapping stays intact');
  assert(getComputedStyle(d.getElementById('resetChart')).display==='none','Chart fixture control is hidden from ordinary visitors');
  assert(main.scrollWidth<=main.clientWidth+1&&picker.scrollWidth<=picker.clientWidth+1,'Selector has no horizontal overflow');
+ const manualDisclosure=d.querySelector('#albumDialog .manual-cover');manualDisclosure.open=true;
+ assert(getComputedStyle(main).overflowY==='auto'&&main.scrollWidth<=main.clientWidth+1,'Expanded manual uploads remain scrollable without horizontal overflow');manualDisclosure.open=false;
  d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);
  assert(d.querySelectorAll('#albumResults .artist-choice').length===1,'Artist-first search returns a selectable artist');
  d.querySelector('#albumResults .artist-choice').click();await pause(15);
@@ -97,20 +111,29 @@ document.getElementById('run').onclick=async()=>{
  d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);d.querySelector('#albumResults .artist-choice').click();await pause(60);
  assert(d.querySelector('#albumResults .album-card img').naturalWidth>0,'Synthetic artwork is ready for the flight');
  d.querySelectorAll('#albumResults .album-card')[0].click();
- assert(!!d.querySelector('.vinyl-flight'),'A successful album choice starts the visual-only flight');
- for(let i=1;i<3;i++)d.querySelectorAll('#albumResults .album-card')[i].click();
- assert(A.getDraft().length===3&&d.getElementById('vinylRackTitle').textContent===all[62].title&&d.querySelectorAll('.vinyl-flight').length<=1,'Rapid selections retain every album and only one flight');
+ assert(!!d.querySelector('.vinyl-flight.corner-flight')&&d.querySelector('#cornerSlots button').classList.contains('is-arriving'),'First cornerstone flies to its assigned corner and shows an aura');
+ for(let i=1;i<4;i++)d.querySelectorAll('#albumResults .album-card')[i].click();
+ assert(A.getDraft().length===4&&d.getElementById('vinylRackTitle').textContent===all[63].title&&d.querySelectorAll('.vinyl-flight').length<=1,'Rapid cornerstone selections retain every album and only one flight');
+ d.querySelectorAll('#albumResults .album-card')[4].click();
+ assert(!!d.querySelector('.vinyl-flight:not(.corner-flight)')&&A.getDraft().length===5,'Regular album selection flies to the record rack');
  await pause(550);assert(!d.querySelector('.vinyl-flight'),'Flight artwork is removed after settling');
- d.querySelectorAll('#albumResults .album-card')[2].click();
- assert(A.getDraft().length===2&&!d.querySelector('.vinyl-flight'),'Clicking an already selected album removes it without an addition flight');
+ d.querySelectorAll('#albumResults .album-card')[4].click();
+ assert(A.getDraft().length===4&&!d.querySelector('.vinyl-flight'),'Clicking an already selected album removes it without an addition flight');
  const originalMatchMedia=w.matchMedia;w.matchMedia=query=>query.includes('prefers-reduced-motion')?{matches:true}:originalMatchMedia.call(w,query);
- d.querySelectorAll('#albumResults .album-card')[3].click();
- assert(A.getDraft().length===3&&!d.querySelector('.vinyl-flight'),'Reduced motion adds the album without flying artwork');w.matchMedia=originalMatchMedia;
- d.querySelectorAll('#albumResults .album-card')[4].click();d.getElementById('closeAlbumDialog').click();
- assert(A.getDraft().length===4&&!d.querySelector('.vinyl-flight'),'Closing mid-animation cleans up flight without losing the album');await pause(350);
+ d.querySelectorAll('#albumResults .album-card')[4].click();
+ assert(A.getDraft().length===5&&!d.querySelector('.vinyl-flight'),'Reduced motion adds the album without flying artwork');w.matchMedia=originalMatchMedia;
+ d.getElementById('selectedCollection').click();
+ assert(!d.getElementById('selectedCollectionView').hidden&&d.getElementById('selectedCollection').getAttribute('aria-expanded')==='true'&&d.querySelectorAll('#selectedShelf button').length===5,'Selected albums open in a separate management view');
+ d.querySelectorAll('#selectedShelf button')[4].click();
+ assert(A.getDraft().length===4&&d.querySelectorAll('#selectedShelf button').length===4&&d.getElementById('selectedCollectionCount').textContent==='(4)','Mini collection view removes a regular album immediately');
+ d.getElementById('selectedCollectionBack').click();
+ assert(d.getElementById('selectedCollectionView').hidden&&d.activeElement===d.getElementById('selectedCollection'),'Management view returns focus to album browsing');
+ d.querySelectorAll('#albumResults .album-card')[4].click();
+ d.querySelectorAll('#albumResults .album-card')[5].click();d.getElementById('closeAlbumDialog').click();
+ assert(A.getDraft().length===6&&!d.querySelector('.vinyl-flight'),'Closing mid-animation cleans up flight without losing the album');await pause(350);
  A.openPicker(all.slice(0,60));
  assert(d.getElementById('vinylRack').dataset.complete==='true'&&d.getElementById('pickerRackCount').textContent.includes('complete'),'A full 60-album rack has a subtle completion state');
- assert(d.getElementById('selectedCollection').open===false,'Selected-album removal remains available without a busy default strip');
+ assert(d.getElementById('selectedCollectionView').hidden&&d.getElementById('selectedCollectionCount').textContent==='(60)','Full collection remains available in its separate view without a default strip');
  d.getElementById('closeAlbumDialog').click();await pause(350);
  C.artists=originalArtists;C.albums=originalAlbums;
  A.setAlbums(all.slice(0,60));S.enterEditor();A.state.motion=false;A.applySettings({motion:false});
