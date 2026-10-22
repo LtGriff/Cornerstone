@@ -97,23 +97,66 @@
   async function artists(term,signal){
     const q='artist:"'+term.replace(/["\\]/g,'')+'"';
     const data=await catalog('https://musicbrainz.org/ws/2/artist/?query='+encodeURIComponent(q)+'&fmt=json&limit=8',signal);
-    return (data.artists||[]).map(a=>({id:a.id,name:a.name,country:a.country,type:a.type,disambiguation:a.disambiguation}));
+    const wanted=normal(term);
+    return (data.artists||[]).map(a=>({id:a.id,name:a.name,country:a.country,type:a.type,disambiguation:a.disambiguation,score:Number(a.score)||0}))
+      .sort((a,b)=>Number(normal(b.name)===wanted)-Number(normal(a.name)===wanted)||Number(normal(b.name).startsWith(wanted))-Number(normal(a.name).startsWith(wanted))||b.score-a.score);
   }
-  async function albums(artist,signal,onPage=()=>{}){
-    const result=[];let offset=0;
-    do {
-      const data=await catalog(`https://musicbrainz.org/ws/2/release-group?artist=${encodeURIComponent(artist.id)}&type=album%7Cep&release-group-status=website-default&fmt=json&limit=25&offset=${offset}`,signal);
+  function releaseCategory(group){
+    const secondary=group['secondary-types']||[];
+    if(secondary.length)return 'more';
+    if(group['primary-type']==='Album')return 'albums';
+    if(group['primary-type']==='EP')return 'eps';
+    return 'more';
+  }
+  const releaseOrder={albums:0,eps:1,more:2};
+  function albumOrder(a,b){return releaseOrder[a.category]-releaseOrder[b.category]||String(b.year||'').localeCompare(String(a.year||''))||a.title.localeCompare(b.title);}
+  async function albums(artist,signal,onPage=()=>{},options={}){
+    const result=options.previous?.slice()||[];let offset=options.offset||0;
+    for(let page=0;page<3;page++){
+      const data=await catalog(`https://musicbrainz.org/ws/2/release-group?artist=${encodeURIComponent(artist.id)}&release-group-status=website-default&fmt=json&limit=100&offset=${offset}`,signal);
       const groups=data['release-groups']||[];
-      result.push(...groups.filter(g=>['Album','EP'].includes(g['primary-type'])&&!(g['secondary-types']||[]).some(t=>['Compilation','Live','Remix','DJ-mix','Interview','Audiobook'].includes(t))).map(g=>({id:g.id,title:g.title,artist:artist.name,artistId:artist.id,year:g['first-release-date']?.slice(0,4),art:`https://coverartarchive.org/release-group/${g.id}/front-500`,thumb:`https://coverartarchive.org/release-group/${g.id}/front-250`,url:`https://musicbrainz.org/release-group/${g.id}`,source:'musicbrainz'})));
-      onPage(unique(result,100).sort((a,b)=>String(b.year||'').localeCompare(String(a.year||''))));
-      offset+=25;if(offset>=(data['release-group-count']||groups.length)||offset>=100)break;
-    }while(true);
-    return unique(result,100).sort((a,b)=>String(b.year||'').localeCompare(String(a.year||'')));
+      result.push(...groups.map(g=>({id:g.id,title:g.title,artist:artist.name,artistId:artist.id,year:g['first-release-date']?.slice(0,4),category:releaseCategory(g),releaseType:[g['primary-type'],...(g['secondary-types']||[])].filter(Boolean).join(' · '),art:`https://coverartarchive.org/release-group/${g.id}/front-500`,thumb:`https://coverartarchive.org/release-group/${g.id}/front-250`,url:`https://musicbrainz.org/release-group/${g.id}`,source:'musicbrainz'})));
+      offset+=groups.length;
+      const visible=unique(result,10000).sort(albumOrder);
+      visible.nextOffset=groups.length&&offset<(data['release-group-count']||groups.length)?offset:null;
+      onPage(visible);
+      if(visible.nextOffset===null)return visible;
+    }
+    const visible=unique(result,10000).sort(albumOrder);
+    visible.nextOffset=offset;
+    return visible;
   }
   const imageCache=new Map();
   function loadImage(url){
-    if(!imageCache.has(url))imageCache.set(url,new Promise((resolve,reject)=>{const im=new Image();const timer=setTimeout(()=>{im.src='';reject(new Error('Artwork timed out'));},16000);im.crossOrigin='anonymous';im.onload=()=>{clearTimeout(timer);resolve(im);};im.onerror=()=>{clearTimeout(timer);reject(new Error('Artwork unavailable'));};im.src=url;}).catch(e=>{imageCache.delete(url);throw e;}));
-    return imageCache.get(url);
+    const cached=imageCache.get(url);
+    if(cached&&(!cached.failedAt||Date.now()-cached.failedAt<21600000))return cached.promise;
+    const entry={promise:new Promise((resolve,reject)=>{const im=new Image();const timer=setTimeout(()=>{im.src='';reject(new Error('Artwork timed out'));},12000);im.crossOrigin='anonymous';im.onload=()=>{clearTimeout(timer);resolve(im);};im.onerror=()=>{clearTimeout(timer);reject(new Error('Artwork unavailable'));};im.src=url;})};
+    entry.promise=entry.promise.catch(e=>{entry.failedAt=Date.now();throw e;});imageCache.set(url,entry);return entry.promise;
+  }
+  const artworkJobs=new Map();
+  function officialReleaseCandidates(releases,album){
+    const plain=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    return releases.filter(r=>r.status==='Official'&&normal(r.title)===normal(album.title)&&r['cover-art-archive']?.front!==false)
+      .sort((a,b)=>Number(plain(a.title)!==plain(album.title))-Number(plain(b.title)!==plain(album.title))||Number(a['cover-art-archive']?.front!==true)-Number(b['cover-art-archive']?.front!==true)||String(a.date||'').localeCompare(String(b.date||''))).slice(0,6);
+  }
+  async function resolveArtwork(album,signal){
+    if(album.source!=='musicbrainz'||!album.id)return null;
+    if(!artworkJobs.has(album.id))artworkJobs.set(album.id,(async()=>{
+      const key='artwork:'+album.id,stored=await get(key).catch(()=>null);
+      if(stored&&Date.now()-stored.time<(stored.art?2592000000:21600000))return stored.art?stored:null;
+      const data=await catalog(`https://musicbrainz.org/ws/2/release?release-group=${encodeURIComponent(album.id)}&status=official&fmt=json&limit=100`,signal);
+      let found=null;
+      for(const release of officialReleaseCandidates(data.releases||[],album)){
+        if(signal?.aborted)throw new DOMException('Cancelled','AbortError');
+        const thumb=`https://coverartarchive.org/release/${release.id}/front-250`;
+        try{await loadImage(thumb);found={art:`https://coverartarchive.org/release/${release.id}/front-500`,thumb};break;}catch(_){}
+      }
+      void put(key,{time:Date.now(),...found}).catch(()=>{});
+      return found;
+    })().finally(()=>artworkJobs.delete(album.id)));
+    const found=await artworkJobs.get(album.id);
+    if(found){album.art=found.art;album.thumb=found.thumb;}
+    return found?.art||null;
   }
   async function analyze(album){
     if(album.color)return album.color;
@@ -136,6 +179,6 @@
     if(collection.length<60&&!limited)for(const artist of top){try{const data=await read(`https://api.spotify.com/v1/artists/${encodeURIComponent(artist.id)}/albums?include_groups=album&limit=50`);pools.push((data.items||[]).filter(a=>a.album_group!=='appears_on').map(spotifyAlbum));}catch(_){pools.push([]);}}
     return {albums:collection,artists:top,pools,suggestions:recommend(top,pools,collection,60-collection.length),stats:{pages,tracks:trackIds.size,ranges,limited}};
   }
-  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,ordered,arrange,recommend,get,put,artists,albums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
+  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,ordered,arrange,recommend,get,put,artists,albums,releaseCategory,officialReleaseCandidates,resolveArtwork,loadImage,analyze,analyzeAll,colorValues,importSpotify};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

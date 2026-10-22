@@ -143,6 +143,13 @@ document.getElementById('run').onclick=async()=>{
  assert(d.getElementById('vinylRack').dataset.complete==='true'&&d.getElementById('pickerRackCount').textContent.includes('complete'),'A full 60-album rack has a subtle completion state');
  assert(d.getElementById('selectedCollectionView').hidden&&d.getElementById('selectedCollectionCount').textContent==='(60)','Full collection remains available in its separate view without a default strip');
  d.getElementById('closeAlbumDialog').click();await pause(350);
+ C.albums=async(_artist,_signal,onPage,options)=>{const releases=all.slice(66,options?.offset?74:72).map((album,i)=>({...album,category:i<2?'albums':i<4?'eps':'more',releaseType:i>=4?'Album · Compilation':'Album'}));releases.nextOffset=options?.offset?null:6;onPage(releases);return releases;};
+ A.openPicker([]);d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);d.querySelector('#albumResults .artist-choice').click();await pause(15);
+ assert(d.querySelectorAll('#albumResults .album-card').length===2&&d.querySelector('#releaseFilters [data-release-filter="albums"]').getAttribute('aria-pressed')==='true','Studio albums are the default search category');
+ d.querySelector('#releaseFilters [data-release-filter="eps"]').click();assert(d.querySelectorAll('#albumResults .album-card').length===2&&d.querySelector('#albumResults .album-card strong').textContent===all[68].title,'EP filter retains independent releases');
+ d.querySelector('#releaseFilters [data-release-filter="more"]').click();assert(d.querySelectorAll('#albumResults .album-card').length===2&&d.querySelector('#albumResults .album-card span').textContent.includes('Compilation'),'More releases keeps compilations accessible');
+ d.querySelector('#albumResults .release-load-more').click();await pause(15);assert(d.querySelectorAll('#albumResults .album-card').length===4&&!d.querySelector('.release-load-more'),'Older special releases remain available on demand');
+ d.getElementById('closeAlbumDialog').click();await pause(350);
  C.artists=originalArtists;C.albums=originalAlbums;
  A.openPicker(all.slice(0,8));d.getElementById('applyAlbums').click();
  assert(!!d.querySelector('#screen .wall-reveal')&&d.querySelector('#screen .wall-reveal').getAttribute('aria-hidden')==='true','Creating an eight-album wall starts a non-interactive frost reveal');

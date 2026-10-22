@@ -710,6 +710,11 @@
         </form>
         <p class="search-status" id="albumSearchStatus">Choose four cornerstones, then complete your collection.</p>
         <p class="retry-note">* If search says unavailable, wait a moment and search again.</p>
+        <div class="release-filters" id="releaseFilters" role="group" aria-label="Release type" hidden>
+          <button type="button" data-release-filter="albums" aria-pressed="true">Albums</button>
+          <button type="button" data-release-filter="eps" aria-pressed="false">EPs</button>
+          <button type="button" data-release-filter="more" aria-pressed="false">More releases</button>
+        </div>
         <div class="album-results" id="albumResults" aria-live="polite"></div>
         <details class="manual-cover">
           <summary>Can’t find an album? Add your own cover</summary>
@@ -828,6 +833,9 @@
       let albumBleedTimer = null;
       let albumSearchResults = [];
       let artistSearchResults = [];
+      let releaseFilter = 'albums';
+      let activeArtist = null;
+      let loadMorePending = false;
       let draftAlbums = [];
       let draftCornerSlots = [null, null, null, null]; // visible TL, TR, BL, BR; saved albums stay clockwise
       let rackLatestId = null;
@@ -1347,7 +1355,18 @@
       function renderAlbumResults() {
         const container = $('albumResults');
         container.replaceChildren();
-        albumSearchResults.forEach((album) => {
+        const filters = $('releaseFilters');
+        filters.hidden = !albumSearchResults.length;
+        const counts = { albums:0, eps:0, more:0 };
+        albumSearchResults.forEach(album => counts[album.category || 'albums']++);
+        if (!counts[releaseFilter]) releaseFilter = ['albums','eps','more'].find(key => counts[key]) || 'albums';
+        filters.querySelectorAll('button').forEach(button => {
+          const type = button.dataset.releaseFilter;
+          button.textContent = `${type === 'eps' ? 'EPs' : type === 'more' ? 'More releases' : 'Albums'} (${counts[type]})`;
+          button.disabled = !counts[type];
+          button.setAttribute('aria-pressed', String(type === releaseFilter));
+        });
+        albumSearchResults.filter(album => (album.category || 'albums') === releaseFilter).forEach((album) => {
           const card = document.createElement('button');
           card.type = 'button';
           card.className = 'album-card';
@@ -1358,14 +1377,28 @@
           if (selectedIndex >= 0) card.dataset.pick = selectedCorner >= 0 ? `Corner ${selectedCorner + 1}` : `${selectedIndex + 1}`;
           const image = new Image();
           image.crossOrigin = 'anonymous';
-          image.src = album.thumb || album.art;
           image.alt = '';
           image.loading = 'lazy'; image.decoding = 'async';
-          image.addEventListener('error', () => { image.hidden=true; card.classList.add('missing-art'); card.title='Artwork unavailable. You can upload a cover below.'; }, { once: true });
+          image.addEventListener('error', async () => {
+            image.hidden=true;
+            if (!album.artworkUnavailable && album.source === 'musicbrainz') {
+              try {
+                const found=await C.resolveArtwork(album);
+                if (found && card.isConnected) {
+                  image.addEventListener('error', () => { image.hidden=true; card.classList.add('missing-art'); card.title='Artwork unavailable. You can upload a cover below.'; }, { once:true });
+                  image.src=album.thumb; image.hidden=false; return;
+                }
+              } catch (_) {}
+            }
+            album.artworkUnavailable=true;
+            if (card.isConnected) { card.classList.add('missing-art'); card.title='Artwork unavailable. You can upload a cover below.'; }
+          }, { once: true });
+          if (!album.artworkUnavailable) image.src = album.thumb || album.art;
+          else { image.hidden=true; card.classList.add('missing-art'); }
           const title = document.createElement('strong');
           title.textContent = album.title;
           const artist = document.createElement('span');
-          artist.textContent = [album.artist, album.year].filter(Boolean).join(' · ');
+          artist.textContent = [album.artist, album.year, releaseFilter === 'more' ? album.releaseType : null].filter(Boolean).join(' · ');
           card.append(image, title, artist);
           card.addEventListener('click', () => {
             const before = draftSignature(), source = rackSource(image), cornerPosition = cornerstoneTarget === null ? draftCornerSlots.findIndex(choice => !choice) : cornerstoneTarget;
@@ -1381,10 +1414,18 @@
           });
           container.append(card);
         });
+        if (albumSearchResults.nextOffset != null && activeArtist) {
+          const more=document.createElement('button');
+          more.type='button';more.className='release-load-more';more.disabled=loadMorePending;
+          more.textContent=loadMorePending?'Loading more releases…':'Load more releases';
+          more.addEventListener('click',()=>void loadMoreArtistAlbums());
+          container.append(more);
+        }
       }
 
       function renderArtistResults() {
         const container = $('albumResults');
+        $('releaseFilters').hidden = true;
         container.classList.add('artist-results');
         container.replaceChildren();
         artistSearchResults.forEach((artist) => {
@@ -1404,6 +1445,11 @@
       async function loadArtistAlbums(artist) {
         searchController?.abort(); searchController=new AbortController();
         const serial=++searchSequence;
+        activeArtist=artist;
+        loadMorePending=false;
+        releaseFilter='albums';
+        albumSearchResults=[];
+        $('releaseFilters').hidden=true;
         $('albumSearchStatus').textContent = `Loading albums and EPs by ${artist.name}…`;
         $('albumResults').replaceChildren();
         try {
@@ -1421,6 +1467,20 @@
           $('albumSearchStatus').textContent=results.length ? `Albums by ${artist.name}. Covers arrive as they load.` : 'No albums found. You can upload a cover below.';
         } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
       }
+      async function loadMoreArtistAlbums() {
+        if (loadMorePending || !activeArtist || albumSearchResults.nextOffset == null) return;
+        searchController?.abort();searchController=new AbortController();
+        const serial=++searchSequence,artist=activeArtist,previous=albumSearchResults;
+        loadMorePending=true;renderAlbumResults();
+        try {
+          const results=await C.albums(artist,searchController.signal,partial=>{
+            if(serial!==searchSequence)return;
+            albumSearchResults=partial;renderAlbumResults();
+          },{offset:previous.nextOffset,previous});
+          if(serial===searchSequence){albumSearchResults=results;$('albumSearchStatus').textContent=`Browsing ${results.length} releases by ${artist.name}.`;}
+        } catch(e){if(serial===searchSequence&&e.name!=='AbortError')$('albumSearchStatus').textContent=e.message;}
+        finally {if(serial===searchSequence){loadMorePending=false;renderAlbumResults();}}
+      }
 
       function openPicker(albums, cornerIndices) {
         window.CornerstoneStudio?.cancelReveal();
@@ -1434,6 +1494,8 @@
         syncDraftOrder();
         cornerstoneTarget = null;
         albumSearchResults=[]; artistSearchResults=[];
+        activeArtist=null;loadMorePending=false;
+        $('releaseFilters').hidden=true;
         $('albumResults').classList.remove('artist-results');
         $('albumResults').replaceChildren();
         $('albumSearchStatus').textContent='Find an artist. Start with four albums that define your wall.';
@@ -1467,19 +1529,30 @@
         const term=$('albumSearch').value.trim();
         searchController?.abort(); searchController=new AbortController();
         const serial=++searchSequence;
-        if(term.length<2)return;
+        activeArtist=null;
+        if(term.length<2){$('albumSearchStatus').textContent='Type at least two letters to find an artist.';return;}
+        $('releaseFilters').hidden=true;
+        $('albumResults').replaceChildren();
         $('albumSearchStatus').textContent='Finding artists…';
         try {
           const result=await C.artists(term,searchController.signal);
           if(serial!==searchSequence)return;
           artistSearchResults=result; renderArtistResults();
-          $('albumSearchStatus').textContent=result.length?'Choose the correct artist.':'No matching artists. Try another spelling.';
+          $('albumSearchStatus').textContent=result.length===1?'Choose this artist to browse releases.':result.length?'Choose the correct artist from these matches.':'No matching artists. Try another spelling.';
         } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
       }
       let searchDebounce;
       $('albumSearch').addEventListener('input',()=>{
         clearTimeout(searchDebounce);searchController?.abort();++searchSequence;
-        searchDebounce=setTimeout(searchArtists,550);
+        $('releaseFilters').hidden=true;
+        $('albumResults').replaceChildren();
+        searchDebounce=setTimeout(searchArtists,350);
+      });
+      $('releaseFilters').addEventListener('click',event=>{
+        const button=event.target.closest('button[data-release-filter]');
+        if(!button||button.disabled)return;
+        releaseFilter=button.dataset.releaseFilter;
+        renderAlbumResults();
       });
       $('albumSearchForm').addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchDebounce);void searchArtists();});
       $('albumDialog').addEventListener('close',()=>{cancelRackAnimation();clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});

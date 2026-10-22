@@ -1,6 +1,22 @@
 const test=require('node:test'),assert=require('node:assert/strict'),C=require('../dist/core.js');
 const album=(i,artist='Artist')=>({id:String(i),title:'Album '+i,artist,art:'https://example.com/'+i+'.jpg',color:[(i*37)%255,(i*71)%255,(i*21)%255]});
 test('deduplicates IDs, artwork and edition variants across catalogs',()=>{assert.equal(C.unique([album(1),{...album(1),id:'else'},album(2),{...album(2),id:'third',art:'https://else/2.jpg',title:'Album 2 (Deluxe Edition)'}]).length,2);});
+test('MusicBrainz release types keep studio albums, EPs and special releases distinct',()=>{
+ assert.equal(C.releaseCategory({'primary-type':'Album','secondary-types':[]}), 'albums');
+ assert.equal(C.releaseCategory({'primary-type':'EP','secondary-types':[]}), 'eps');
+ for(const type of ['Compilation','Live','Mixtape/Street','Soundtrack'])assert.equal(C.releaseCategory({'primary-type':'Album','secondary-types':[type]}), 'more');
+ assert.equal(C.releaseCategory({'primary-type':'Single'}), 'more');
+});
+test('artwork fallback accepts only official releases of the same album and prefers the exact title',()=>{
+ const target={title:'Good Album'}, releases=[
+  {id:'fan',title:'Good Album',status:'Bootleg','cover-art-archive':{front:true}},
+  {id:'wrong',title:'Other Album',status:'Official','cover-art-archive':{front:true}},
+  {id:'deluxe',title:'Good Album (Deluxe Edition)',status:'Official','cover-art-archive':{front:true}},
+  {id:'plain',title:'Good Album',status:'Official','cover-art-archive':{front:true}},
+  {id:'back-only',title:'Good Album',status:'Official','cover-art-archive':{front:false}}
+ ];
+ assert.deepEqual(C.officialReleaseCandidates(releases,target).map(r=>r.id),['plain','deluxe']);
+});
 test('visible corner order maps to legacy clockwise storage without moving saved albums',()=>{const saved=[album(1),album(2),album(3),album(4)];assert.deepEqual(C.cornerToStorage,[0,1,3,2]);assert.deepEqual(C.cornerToStorage.map(index=>saved[index].id),['1','2','4','3']);for(const columns of [2,5,10]){const positions=C.corners(columns*6,columns);assert.deepEqual([positions[0],positions[1],positions[3],positions[2]],[0,columns-1,columns*5,columns*6-1]);}assert.deepEqual(saved.map(a=>a.id),['1','2','3','4']);});
 test('60 albums fill desktop, portrait and ultrawide grids without blank slots',()=>{for(const aspect of [16/9,1290/2796,21/9,32/9,1]){const s=C.shape(aspect,60,60);assert.equal(s.count,60);assert.equal(s.rows*s.columns,60);for(const mode of ['original','color','gradient','alternating','random']){const input=Array.from({length:60},(_,i)=>album(i)),out=C.arrange(input,s.count,s.columns,mode,'#d78c56',42);assert.equal(new Set(out.map(a=>a.id)).size,60);C.corners(60,s.columns).forEach((pos,i)=>assert.equal(out[pos].id,input[i].id));assert.equal(input[4].id,'4');}}});
 test('smaller collections use only available albums without duplication',()=>{for(let n=4;n<=60;n++){const s=C.shape(16/9,n,60);assert.ok(s.count<=n);assert.equal(C.arrange(Array.from({length:n},(_,i)=>album(i)),s.count,s.columns).filter(Boolean).length,s.count);}});

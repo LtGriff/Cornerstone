@@ -223,6 +223,14 @@ dialog::backdrop { background:#0e101468 !important; backdrop-filter:blur(8px); }
 #albumDialog .album-search .action { min-height:46px;border-radius:13px; }
 #albumDialog .search-status { margin:0 2px 2px;min-height:0;font-size:11px;color:var(--picker-subtle); }
 #albumDialog .retry-note { margin:0 2px 5px;font-size:10px;color:#cbc6d1; }
+#albumDialog .release-filters { display:flex;flex-wrap:wrap;gap:5px;min-width:0;margin:0 2px 6px; }
+#albumDialog .release-filters[hidden] { display:none; }
+#albumDialog .release-filters button { min-width:0;padding:5px 9px;border:1px solid #ffffff42;border-radius:999px;background:#ffffff0b;color:var(--picker-subtle);font:inherit;font-size:10px;white-space:nowrap;cursor:pointer; }
+#albumDialog .release-filters button[aria-pressed=true] { border-color:#d6c2f1;background:#c6a7e025;color:var(--picker-text); }
+#albumDialog .release-filters button:disabled { opacity:.45;cursor:default; }
+#albumDialog .release-filters button:focus-visible { outline:2px solid #d8bced;outline-offset:2px; }
+html[data-theme=day] #albumDialog .release-filters button { border-color:#8c99a16b;background:#ffffffb8;color:#4d5863; }
+html[data-theme=day] #albumDialog .release-filters button[aria-pressed=true] { border-color:#8b5b9a;background:#ecddf2;color:#202833; }
 #albumDialog .album-results { flex:1 1 auto;min-height:0;max-height:none;align-content:start;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;padding:2px 5px 10px 2px;overflow-y:auto;overscroll-behavior:contain; }
 #albumDialog .album-card { display:flex;flex-direction:column;min-width:0;padding:7px;border-color:#ffffff32;border-radius:15px;background:#ffffff0e;transition:transform .18s,border-color .18s,background .18s; }
 #albumDialog .album-card:hover { border-color:#ffffff85;background:#ffffff1d; }
@@ -232,6 +240,9 @@ dialog::backdrop { background:#0e101468 !important; backdrop-filter:blur(8px); }
 #albumDialog .album-card span { font-size:10px;line-height:1.2;margin-top:2px; }
 #albumDialog .album-card[data-pick]::before { top:12px;left:12px; }
 #albumDialog .album-card[aria-pressed=true]::after { top:12px;right:12px;width:23px;height:23px; }
+#albumDialog .release-load-more { grid-column:1/-1;justify-self:center;min-height:36px;margin:7px 0;padding:0 16px;border:1px solid #ffffff48;border-radius:999px;background:#ffffff12;color:var(--picker-text);font:inherit;font-size:11px;cursor:pointer; }
+#albumDialog .release-load-more:disabled { opacity:.65;cursor:default; }
+#albumDialog .release-load-more:focus-visible { outline:2px solid #d8bced;outline-offset:2px; }
 #albumDialog .artist-results { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px; }
 #albumDialog .artist-choice { min-height:62px;border-color:#ffffff33;background:#ffffff0e;border-radius:13px; }
 #albumDialog .artist-choice:hover { background:#ffffff22; }
