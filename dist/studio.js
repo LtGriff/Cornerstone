@@ -82,7 +82,7 @@
   }
   document.addEventListener('fullscreenchange',()=>{cancelReveal();const full=!!document.fullscreenElement;outerFrame.hidden=full;appearanceDock.hidden=full;if(full)closeAppearance();});
   window.addEventListener('pagehide',cancelReveal);
-  let currentStep='landing', hasProject=false, ready=false, draft=null, draftCornerIndices=null, importData=null, dismissed=new Set(), saveTimer, saveQueue=Promise.resolve(), gradientRevision=0, toastTimer;
+  let currentStep='landing', hasProject=false, ready=false, draft=null, draftCornerIndices=null, importData=null, dismissed=new Set(), saveTimer, saveQueue=Promise.resolve(), gradientRevision=0, toastTimer, recommendationTimer, recommendationRevision=0, recommendationController;
   let activeDraft=false;
   root.innerHTML='<div class="arrival"><div class="arrival-backdrop" aria-hidden="true"></div><section class="stage landing" id="stage" aria-label="Create your Cornerstone wall"></section></div>';
   const backdrop=root.querySelector('.arrival-backdrop');
@@ -140,18 +140,50 @@
     void gradient(items,chosen);changed();
   }
   function recommendationScreen(){
-    currentStep='recommendations';const count=A.state.albums.length,need=Math.max(0,60-count),stats=importData?.stats;
-    show(`<p class="eyebrow">A little more of what you love</p><h2 tabindex="-1">Complete your collection.</h2><div class="completion-progress">${count} <small>/ 60 → 60 / 60</small></div><p class="subtitle">${need?'We found '+count+' unique albums. Here are more releases from familiar artists for you to choose.':'Your 60-album collection is ready.'} ${info('importInfo','Top tracks are songs, not unique albums. We follow available result pages and the listening periods you allow. Repeated albums count once. Suggestions below are artist-catalog discoveries, not proof you listened to them.')}</p><p class="beta-copy" id="importDetails"></p><div class="recommendations" id="suggestions"></div><div class="stage-actions"><button class="glass-pill" id="acceptAll">Accept all suggestions</button><button class="quiet-button" id="manualCompletion">Search myself</button><button class="quiet-button" id="useCollection">Use my collection →</button></div>`);
-    $('importDetails').textContent=stats?`${stats.tracks} distinct top tracks checked across ${stats.pages} pages.${stats.limited?' We kept the results received before a service or request limit.':''} Suggestions are optional.`:'Suggestions are optional. Choose only albums you want.';
+    currentStep='recommendations';
+    show(`<p class="eyebrow">A little more of what you love</p><h2 tabindex="-1">Complete your collection.</h2><div class="completion-progress" id="completionProgress"></div><p class="subtitle"><span id="completionMessage"></span> ${info('importInfo','Top tracks reflect Spotify affinity, not exact play counts. Several tracks may belong to one album. Suggestions come from MusicBrainz artist catalogs; they are not proof you listened to those albums.')}</p><p class="beta-copy" id="importDetails"></p><div class="recommendations" id="suggestions" aria-live="polite"></div><div class="stage-actions"><button class="glass-pill" id="acceptAll">Accept all suggestions</button><button class="quiet-button" id="retryRecommendations" hidden>Retry suggestions</button><button class="quiet-button" id="manualCompletion">Search myself</button><button class="quiet-button" id="useCollection">Use my collection →</button></div>`);
+    bind('acceptAll',()=>accept(currentSuggestions()));bind('retryRecommendations',()=>{importData.catalogComplete=false;importData.catalogError=false;void loadCatalogSuggestions();});bind('manualCompletion',()=>pick(A.state.albums));bind('useCollection',()=>{activeDraft=false;draft=A.state.albums.slice();enterEditor({reveal:true});});
+    renderRecommendations();void save();
+  }
+  function currentSuggestions(){
+    const pools=(importData?.pools||[]).map(p=>p.filter(a=>!dismissed.has(C.identity(a))));
+    return C.recommend(importData?.artists||[],pools,A.state.albums,Math.max(0,60-A.state.albums.length));
+  }
+  function renderRecommendations(){
+    if(currentStep!=='recommendations'||!$('suggestions'))return;
+    const count=A.state.albums.length,need=Math.max(0,60-count),stats=importData?.stats;
+    $('completionProgress').innerHTML=`${count} <small>/ 60${need?' → 60 / 60':''}</small>`;
+    $('completionMessage').textContent=need?`We found ${count} unique albums in the top tracks available to Cornerstone. Several favorite tracks can belong to one album. Choose from these additional albums by familiar artists, or keep a smaller wall.`:'Your 60-album collection is ready.';
+    const reason=stats?.limitReason;
+    const limitCopy=reason==='page_window'?' Cornerstone scanned up to three track pages per listening period.':reason==='quota'?' Spotify’s beta request quota stopped this import early.':reason==='rate_limit'?' Spotify rate-limited the import; the albums received so far were kept.':reason==='auth'||reason==='access'?' Spotify access ended before all periods could be checked.':reason?' Some results were incomplete; the albums received so far were kept.':'';
+    $('importDetails').textContent=stats?`${stats.tracks} distinct top tracks checked across ${stats.pages} pages${stats.artistPages?`, plus ${stats.artistPages} top-artist lists`:''}.${stats.missingArtwork?` ${stats.missingArtwork} albums without artwork could not be added.`:''}${limitCopy}${importData?.catalogError?' Some artist catalogs were unavailable; you can search manually.':''} ${importData?.loading?'Finding more albums from your leading artists…':'Suggestions are optional.'}`:'Suggestions are optional. Choose only albums you want.';
     const pools=(importData?.pools||[]).map(p=>p.filter(a=>!dismissed.has(C.identity(a))));
     const suggestions=C.recommend(importData?.artists||[],pools,A.state.albums,need);
-    if(!suggestions.length){$('suggestions').textContent=need?'No more suitable albums are available here. Search your favorites or keep a smaller, fully filled wall.':'All 60 places are filled, without repeating an album.';$('acceptAll').hidden=true;}
-    for(const album of suggestions){const card=document.createElement('article');card.className='suggestion';const im=new Image();im.loading='lazy';im.src=album.thumb||album.art;im.alt=album.title;im.onerror=()=>{im.alt='Cover unavailable';};const title=document.createElement('strong');title.textContent=album.title;title.title=album.title;const artist=document.createElement('small');artist.textContent=album.suggestedBy;const badge=document.createElement('small');badge.textContent='Suggested · not listening history';const actions=document.createElement('div');actions.className='suggestion-actions';for(const [label,desc,fn]of [['+','Accept '+album.title,()=>accept([album])],['↻','Replace '+album.title,()=>{dismissed.add(C.identity(album));recommendationScreen();}],['×','Dismiss '+album.title,()=>{dismissed.add(C.identity(album));importData.pools=importData.pools.map(p=>p.filter(a=>C.identity(a)!==C.identity(album)));recommendationScreen();}]]){const b=document.createElement('button');b.textContent=label;b.title=desc;b.setAttribute('aria-label',desc);b.onclick=fn;actions.append(b);}card.append(im,title,artist,badge,actions);$('suggestions').append(card);}
-    $('useCollection').disabled=count<4;bind('acceptAll',()=>accept(suggestions));bind('manualCompletion',()=>pick(A.state.albums));bind('useCollection',()=>{activeDraft=false;draft=A.state.albums.slice();enterEditor({reveal:true});});void save();
+    $('suggestions').replaceChildren();$('acceptAll').hidden=!suggestions.length;$('retryRecommendations').hidden=!importData?.catalogError||!!importData?.loading||!need;
+    if(!suggestions.length)$('suggestions').textContent=need?(importData?.loading?'Looking for suitable albums with verified covers…':'No more suitable albums are available here. Search your favorites or keep a smaller, fully filled wall.'):'All 60 places are filled, without repeating an album.';
+    for(const album of suggestions){const card=document.createElement('article');card.className='suggestion';const im=new Image();im.loading='lazy';im.decoding='async';im.src=album.thumb||album.art;im.alt=album.title;const title=document.createElement('strong');title.textContent=album.title;title.title=album.title;const artist=document.createElement('small');artist.textContent=album.suggestedBy;const badge=document.createElement('small');badge.textContent='Suggested · not listening history';const actions=document.createElement('div');actions.className='suggestion-actions';for(const [label,desc,fn]of [['+','Accept '+album.title,()=>accept([album])],['↻','Replace '+album.title,()=>{dismissed.add(C.identity(album));renderRecommendations();changed();}],['×','Dismiss '+album.title,()=>{dismissed.add(C.identity(album));renderRecommendations();changed();}]]){const b=document.createElement('button');b.textContent=label;b.title=desc;b.setAttribute('aria-label',desc);b.onclick=fn;actions.append(b);}im.onerror=()=>{im.hidden=true;card.classList.add('missing-art');actions.firstElementChild.disabled=true;};card.append(im,title,artist,badge,actions);$('suggestions').append(card);}
+    $('useCollection').disabled=count<4;
   }
-  function accept(items){A.state.albums=C.unique(A.state.albums.concat(items));draft=A.state.albums.slice();activeDraft=false;void gradient(draft);recommendationScreen();}
-  function resume(){if(activeDraft&&draft?.length){pick(draft,draftCornerIndices);return;}updateOuterFrame(A.state.mode==='albums'?A.state.albums:[]);if(importData&&currentStep!=='editor'&&!importData.completed&&A.state.albums.length<60){recommendationScreen();return;}enterEditor();}
+  function queueRecommendationRefresh(){clearTimeout(recommendationTimer);recommendationTimer=setTimeout(()=>{renderRecommendations();changed();},120);}
+  async function loadCatalogSuggestions(){
+    if(!importData||importData.catalogComplete||A.state.albums.length>=60)return;
+    recommendationController?.abort();recommendationController=new AbortController();const signal=recommendationController.signal,revision=++recommendationRevision,data=importData;
+    data.pools ||= (data.artists||[]).map(()=>[]);
+    data.loading=true;renderRecommendations();
+    for(let i=0;i<(data.artists||[]).length;i++){
+      if(signal.aborted||revision!==recommendationRevision||A.state.albums.length>=60)break;
+      if(i>=3&&currentSuggestions().length>=60-A.state.albums.length)break;
+      if(!data.artists[i]?.name||!data.artists[i]?.id)continue;
+      try{data.pools[i]=await C.discoverArtistAlbums(data.artists[i],pool=>{if(signal.aborted||revision!==recommendationRevision)return;data.pools[i]=pool;queueRecommendationRefresh();},signal);}
+      catch(e){if(e.name==='AbortError')break;data.catalogError=true;}
+      queueRecommendationRefresh();
+    }
+    if(!signal.aborted&&revision===recommendationRevision){data.loading=false;data.catalogComplete=true;renderRecommendations();void save();}
+  }
+  function accept(items){A.state.albums=C.unique(A.state.albums.concat(items),60);draft=A.state.albums.slice();activeDraft=false;void gradient(draft);renderRecommendations();void save();}
+  function resume(){if(activeDraft&&draft?.length){pick(draft,draftCornerIndices);return;}updateOuterFrame(A.state.mode==='albums'?A.state.albums:[]);if(importData&&currentStep!=='editor'&&!importData.completed&&A.state.albums.length<60){recommendationScreen();if(!importData.catalogComplete)void loadCatalogSuggestions();return;}enterEditor();}
   function enterEditor({reveal=false}={}){
+    recommendationController?.abort();
     if(importData)importData.completed=true;
     currentStep='editor';activeDraft=false;document.body.classList.remove('onboarding');document.querySelector('.app').inert=false;hasProject=true;
     $('detail').value=A.state.detail;$('frameSize').value=A.state.frameInches;$('speed').value=A.state.speed;
@@ -189,7 +221,7 @@
   $('projectFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>30000000)throw Error('This project file is too large.');const data=validateProject(JSON.parse(await file.text()));Object.assign(A.state,data.state);draft=A.state.albums.slice();draftCornerIndices=null;A.setRackLatestId(data.rackLatestId);importData=null;enterEditor();toast('Project opened.');}catch(err){toast(err.message);}e.target.value='';};
   document.querySelector('.controls').addEventListener('input',changed);document.querySelector('.controls').addEventListener('click',changed);
   document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelReveal();void save();}});
-  window.CornerstoneStudio={changed,draftChanged,save,enterEditor,drawFrame,startReveal,cancelReveal,importProgress:count=>{const el=$('importProgress');if(el)el.textContent=`${count} unique albums found…`;},imported:async result=>{importData=result;draft=result.albums.slice();draftCornerIndices=null;activeDraft=false;A.state.detail=5;await save();void gradient(draft);recommendationScreen();},importFailed:message=>{connect();toast(message);}};
+  window.CornerstoneStudio={changed,draftChanged,save,enterEditor,drawFrame,startReveal,cancelReveal,importProgress:count=>{const el=$('importProgress');if(el)el.textContent=`${count} unique albums found…`;},imported:async result=>{recommendationController?.abort();++recommendationRevision;importData=result;dismissed=new Set();draft=result.albums.slice();draftCornerIndices=null;activeDraft=false;A.state.detail=5;await save();void gradient(draft);recommendationScreen();if(result.albums.length<60&&!result.pools?.some(p=>p.length))void loadCatalogSuggestions();},importFailed:message=>{connect();toast(message);}};
   async function boot(){
     try{const project=await C.get('project');if(project?.version===3){Object.assign(A.state,project.state);A.state.albums=C.unique(A.state.albums||[]);draft=project.draft;draftCornerIndices=Array.isArray(project.draftCornerIndices)&&project.draftCornerIndices.length===4&&project.draftCornerIndices.every(index=>Number.isInteger(index)&&index>=-1&&index<(draft?.length||0))&&new Set(project.draftCornerIndices.filter(index=>index>=0)).size===project.draftCornerIndices.filter(index=>index>=0).length?project.draftCornerIndices:null;A.setRackLatestId(project.rackLatestId);activeDraft=project.activeDraft;importData=project.importData;dismissed=new Set(project.dismissed||[]);hasProject=true;}else if(A.state.customAlbums){A.state.albums=C.unique(A.state.albums);A.state.mode='albums';hasProject=true;}}catch(_){$('saveStatus').textContent='Browser storage is unavailable. Use Save project file to keep a copy.';}
     ready=true;

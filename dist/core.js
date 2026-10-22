@@ -1,7 +1,7 @@
 /* Shared collection, layout, catalog and persistence services. No private credentials. */
 (function (root) {
   'use strict';
-  const normal = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*(?:deluxe|remaster|expanded|anniversary|edition|explicit|clean)[^)]*\)|\[[^\]]*(?:deluxe|remaster|edition)[^\]]*\]/g, '').replace(/[^a-z0-9]/g, '');
+  const normal = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*(?:deluxe|remaster|expanded|anniversary|edition|explicit|clean)[^)]*\)|\[[^\]]*(?:deluxe|remaster|edition)[^\]]*\]/g, '').replace(/\s*[-–—:]\s*(?:deluxe|expanded|remaster(?:ed)?|anniversary|special|bonus)\b.*$/i,'').replace(/[^a-z0-9]/g, '');
   const identity = a => `${normal(a.artist)}:${normal(a.title)}`;
   function unique(items, limit = 60) {
     const ids = new Set(), names = new Set(), arts = new Set();
@@ -158,6 +158,23 @@
     if(found){album.art=found.art;album.thumb=found.thumb;}
     return found?.art||null;
   }
+  async function discoverArtistAlbums(familiarArtist,onProgress=()=>{},signal){
+    const matches=await artists(familiarArtist.name,signal);
+    const match=matches.find(a=>normal(a.name)===normal(familiarArtist.name));
+    if(!match)return [];
+    const releases=(await albums(match,signal)).filter(a=>a.category==='albums'||a.category==='eps').slice(0,40);
+    const verified=[];let cursor=0;
+    await Promise.all(Array.from({length:4},async()=>{
+      while(cursor<releases.length){
+        if(signal?.aborted)throw new DOMException('Cancelled','AbortError');
+        const candidate=releases[cursor++];
+        try{await loadImage(candidate.thumb);}catch(_){try{if(!await resolveArtwork(candidate,signal))continue;}catch(e){if(e.name==='AbortError')throw e;continue;}}
+        verified.push(candidate);
+        onProgress(unique(verified,100));
+      }
+    }));
+    return unique(verified,100);
+  }
   async function analyze(album){
     if(album.color)return album.color;
     const stored=await get('color:'+album.art).catch(()=>null);if(stored){album.color=stored;return stored;}
@@ -166,19 +183,41 @@
   async function analyzeAll(items){let i=0;await Promise.all(Array.from({length:4},async()=>{while(i<items.length)await analyze(items[i++]);}));return items;}
   function spotifyAlbum(a){const images=a.images||[];return {id:'spotify-'+a.id,title:a.name,artist:(a.artists||[]).map(x=>x.name).join(' & '),artistIds:a.artists||[],year:a.release_date?.slice(0,4),art:images[0]?.url,thumb:images.find(x=>x.width>=250&&x.width<500)?.url||images[0]?.url,url:a.external_urls?.spotify,source:'spotify',provenance:'history'};}
   async function importSpotify(token,range,otherRanges=true,onProgress=()=>{},request=fetch){
-    const headers={Authorization:'Bearer '+token};let collection=[],trackIds=new Set(),weights=new Map(),pages=0,limited=false;
-    const read=async url=>{if(new URL(url).origin!=='https://api.spotify.com')throw new Error('Invalid Spotify page');const r=await request(url,{headers});if(!r.ok){const e=new Error(r.status===403?'Spotify has not approved this account for this beta. Ask the owner to add your Spotify email.':r.status===429?'Spotify is busy. Try importing again later.':'Spotify could not finish the import. Please reconnect.');e.status=r.status;throw e;}return r.json();};
+    const headers={Authorization:'Bearer '+token};let collection=[],trackIds=new Set(),weights=new Map(),pages=0,artistPages=0,missingArtwork=0,limitReason=null;
+    const read=async url=>{
+      if(new URL(url).origin!=='https://api.spotify.com')throw new Error('Invalid Spotify page');
+      for(let attempt=0;attempt<2;attempt++){
+        const r=await request(url,{headers});
+        if(r.ok)return r.json();
+        const body=await r.json().catch(()=>({}));
+        const reason=body?.error?.reason;
+        if(r.status===429&&reason!=='QUOTA_EXCEEDED'&&attempt===0){const seconds=Number(r.headers?.get?.('Retry-After'));if(Number.isFinite(seconds)&&seconds>=0&&seconds<=3){await wait(seconds*1000);continue;}}
+        const kind=r.status===429?(reason==='QUOTA_EXCEEDED'?'quota':'rate_limit'):r.status===401?'auth':r.status===403?'access':'service';
+        const e=new Error(kind==='quota'?'Spotify’s beta request quota is temporarily exhausted. Try again later.':kind==='rate_limit'?'Spotify is rate-limiting requests. Try again later.':kind==='access'?'Spotify has not approved this account for this beta. Ask the owner to add your Spotify email.':kind==='auth'?'Spotify sign-in expired. Please reconnect.':'Spotify could not finish the import. Please reconnect.');
+        e.status=r.status;e.kind=kind;throw e;
+      }
+    };
+    const addWeight=(artist,amount)=>{if(!artist?.id)return;const old=weights.get(artist.id);weights.set(artist.id,{id:artist.id,name:artist.name||old?.name||'Artist',weight:(old?.weight||0)+amount});};
     const ranges=otherRanges?[range,...['long_term','medium_term','short_term'].filter(x=>x!==range)]:[range];
     outer:for(const period of ranges){let next=`https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=${period}`,visited=new Set(),n=0;
-      while(next&&n<3){if(visited.has(next))break;visited.add(next);let data;try{data=await read(next);}catch(e){if(!collection.length)throw e;limited=true;break outer;}
-        pages++;n++;for(const entry of data.items||[]){const t=entry.item||entry;if(!t.album||trackIds.has(t.id))continue;trackIds.add(t.id);const a=t.artists?.[0];if(a?.id)weights.set(a.id,{id:a.id,name:a.name,weight:(weights.get(a.id)?.weight||0)+1});collection=unique(collection.concat(spotifyAlbum(t.album)),60);}
-        onProgress(collection.length);if(collection.length>=60)break outer;next=data.next;if(n===3&&next)limited=true;
+      while(next&&n<3){if(visited.has(next)){limitReason='incomplete';break;}visited.add(next);let data;try{data=await read(next);}catch(e){if(!collection.length)throw e;limitReason=e.kind||'service';break outer;}
+        if(!Array.isArray(data?.items)){limitReason='incomplete';break outer;}
+        pages++;n++;data.items.forEach((entry,index)=>{const t=entry.item||entry;if(!t?.album)return;
+          (t.artists||[]).slice(0,2).forEach((artist,i)=>addWeight(artist,(i?0.3:1)*(period===range?1.2:1)/(1+((n-1)*50+index)/20)));
+          if(t.id&&trackIds.has(t.id))return;if(t.id)trackIds.add(t.id);
+          const album=spotifyAlbum(t.album);if(!album.art){missingArtwork++;return;}
+          collection=unique(collection.concat(album),60);
+        });
+        onProgress(collection.length);if(collection.length>=60)break outer;next=data.next;if(n===3&&next)limitReason='page_window';
       }
     }
-    const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,3),pools=[];
-    if(collection.length<60&&!limited)for(const artist of top){try{const data=await read(`https://api.spotify.com/v1/artists/${encodeURIComponent(artist.id)}/albums?include_groups=album&limit=50`);pools.push((data.items||[]).filter(a=>a.album_group!=='appears_on').map(spotifyAlbum));}catch(_){pools.push([]);}}
-    return {albums:collection,artists:top,pools,suggestions:recommend(top,pools,collection,60-collection.length),stats:{pages,tracks:trackIds.size,ranges,limited}};
+    if(collection.length<60&&!['quota','rate_limit','auth','access'].includes(limitReason))for(const period of ranges){
+      try{const data=await read(`https://api.spotify.com/v1/me/top/artists?limit=20&time_range=${period}`);if(!Array.isArray(data?.items)){limitReason='incomplete';break;}artistPages++;data.items.forEach((artist,index)=>addWeight(artist,(period===range?1.2:1)*2/(1+index/5)));}
+      catch(e){limitReason=e.kind||'service';break;}
+    }
+    const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
+    return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,ordered,arrange,recommend,get,put,artists,albums,releaseCategory,officialReleaseCandidates,resolveArtwork,loadImage,analyze,analyzeAll,colorValues,importSpotify};
+  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,ordered,arrange,recommend,get,put,artists,albums,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

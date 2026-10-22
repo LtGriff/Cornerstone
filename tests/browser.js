@@ -178,6 +178,25 @@ document.getElementById('run').onclick=async()=>{
  for(const [label,width,height,style]of [['phone',1290,2796,'frost'],['desktop',3840,2160,'smoke']]){A.state.frame=style;await A.saveWallpaper(d.getElementById(label==='phone'?'savePhone':'saveDesktop'),width,height,label);const saved=downloads.at(-1);assert(saved?.name.includes(label),label+' PNG generated');const blob=await(await fetch(saved.url)).blob(),bitmap=await createImageBitmap(blob);assert(bitmap.width===width&&bitmap.height===height,label+' exact pixel dimensions');const testCanvas=document.createElement('canvas');testCanvas.width=width;testCanvas.height=height;const ctx=testCanvas.getContext('2d');ctx.drawImage(bitmap,0,0);assert(ctx.getImageData(width/2,height/2,1,1).data[3]===255,label+' has no transparent center');assert(cornersMatch(physicalSample(ctx,width,height)),label+' '+style+' export retains four physical album colors without website frame');bitmap.close();}
  w.HTMLAnchorElement.prototype.click=oldClick;
  A.state.albums=originalCollection;A.state.frame='frost';
+ A.setAlbums(all.slice(0,3));await S.imported({albums:all.slice(0,3),artists:[],pools:[],stats:{tracks:3,pages:1,artistPages:0,ranges:['short_term']}});
+ assert(d.getElementById('useCollection').disabled&&!d.getElementById('manualCompletion').disabled,'Fewer than four imported albums prompt manual completion instead of a broken wall');
+ const originalDiscover=C.discoverArtistAlbums;
+ C.discoverArtistAlbums=async()=>{throw Error('Catalog busy');};A.setAlbums(all.slice(0,4));await S.imported({albums:all.slice(0,4),artists:[{id:'qa0',name:'Test Artist 0',weight:8}],pools:[[]],stats:{tracks:4,pages:1,artistPages:1,ranges:['long_term']}});await pause(20);
+ assert(!d.getElementById('retryRecommendations').hidden&&d.getElementById('importDetails').textContent.includes('artist catalogs were unavailable'),'Catalog failure preserves imported albums and offers retry');
+ C.discoverArtistAlbums=async(_artist,onProgress)=>{const pool=all.slice(20,26);onProgress(pool);return pool;};d.getElementById('retryRecommendations').click();await pause(20);
+ assert(d.querySelectorAll('.suggestion').length===6,'Retry recovers suggestions without reconnecting Spotify');
+ C.discoverArtistAlbums=async(artist,onProgress)=>{const i=Number(artist.id.slice(2)),pool=all.slice(20+i*12,32+i*12).map(a=>({...a,artist:artist.name}));onProgress(pool.slice(0,5));await pause(8);onProgress(pool);return pool;};
+ const twenty=all.slice(0,20),leaders=Array.from({length:4},(_,i)=>({id:'qa'+i,name:'Test Artist '+i,weight:8-i*2}));
+ A.setAlbums(twenty);await S.imported({albums:twenty,artists:leaders,pools:leaders.map(()=>[]),stats:{tracks:44,pages:3,artistPages:2,ranges:['long_term','medium_term']}});await pause(160);
+ assert(d.querySelectorAll('.suggestion').length===40&&d.getElementById('completionProgress').textContent.includes('20'),'20 imported albums gain exactly 40 optional catalog suggestions');
+ assert(d.documentElement.scrollWidth<=d.documentElement.clientWidth+1,'Recommendation grid has no horizontal overflow');
+ d.querySelector('.suggestion-actions button:nth-child(2)').click();d.querySelector('.suggestion-actions button:nth-child(3)').click();
+ assert(d.querySelectorAll('.suggestion').length===40,'Rapid replace and dismiss refill from familiar artists without duplicates');
+ d.querySelector('.suggestion-actions button').click();assert(A.state.albums.length===21&&A.state.albums.slice(0,4).every((a,i)=>a.title===twenty[i].title),'Accepting one suggestion preserves imported cornerstones');
+ await S.save();C.discoverArtistAlbums=originalDiscover;
+ await new Promise(resolve=>{frame.onload=resolve;frame.src='/?qa-partial-reload=1';});await pause(250);w=frame.contentWindow;d=w.document;A=w.CornerstoneApp;S=w.CornerstoneStudio;C=w.CornerstoneCore;
+ d.getElementById('resumeProject').click();assert(d.getElementById('completionProgress').textContent.includes('21')&&d.querySelectorAll('.suggestion').length===39,'Saved incomplete recommendation choices restore without restarting');
+ d.getElementById('acceptAll').click();assert(A.state.albums.length===60&&C.unique(A.state.albums).length===60,'Accepting all after restoration fills exactly 60 unique albums');
  await S.imported(fixture(w));assert(d.querySelectorAll('.suggestion').length===15,'45 imported → 15 relevant suggestions');
  d.querySelector('.suggestion-actions button:nth-child(2)').click();assert(d.querySelectorAll('.suggestion').length===15,'Replace suggestion replenishes grid');
  d.querySelector('.suggestion-actions button').click();assert(A.state.albums.length===46,'Individual acceptance preserves imported albums');
