@@ -3,6 +3,43 @@
   const A=window.CornerstoneApp, C=window.CornerstoneCore, $=id=>document.getElementById(id);
   const root=$('onboardingRoot'), cornerMap=C.cornerToStorage, labels=['Top left','Top right','Bottom left','Bottom right'];
   const outerFrame=$('outerWebsiteFrame');
+  const screen=$('screen');
+  let revealRevision=0,revealWaitTimer=0,revealEndTimer=0,revealListeners=[];
+  function cancelReveal(){
+    ++revealRevision;
+    clearTimeout(revealWaitTimer);clearTimeout(revealEndTimer);
+    revealListeners.forEach(off=>off());revealListeners=[];
+    screen.querySelector('.wall-reveal')?.remove();
+  }
+  function startReveal(){
+    cancelReveal();
+    if(A.wallpaperMode||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const revision=revealRevision,overlay=document.createElement('div');
+    overlay.className='wall-reveal';overlay.setAttribute('aria-hidden','true');screen.append(overlay);
+    requestAnimationFrame(()=>{
+      if(revision!==revealRevision)return;
+      const images=[...screen.querySelectorAll('#grid .front img')];
+      let settled=images.filter(image=>image.complete).length;
+      const needed=Math.max(1,Math.ceil(images.length*.6));
+      function clear(){
+        if(revision!==revealRevision||overlay.classList.contains('is-clearing'))return;
+        clearTimeout(revealWaitTimer);revealListeners.forEach(off=>off());revealListeners=[];
+        if(typeof CSS!=='undefined'&&typeof CSS.registerProperty==='function'&&CSS.supports('mask-image','radial-gradient(circle farthest-corner at center,transparent 20%,#000 30%)'))overlay.classList.add('is-radial');
+        overlay.classList.add('is-clearing');
+        overlay.addEventListener('animationend',()=>{if(revision===revealRevision)cancelReveal();},{once:true});
+        revealEndTimer=setTimeout(()=>{if(revision===revealRevision)cancelReveal();},1650);
+      }
+      if(!images.length||settled>=needed){clear();return;}
+      for(const image of images){
+        if(image.complete)continue;
+        const done=()=>{if(++settled>=needed)clear();};
+        image.addEventListener('load',done,{once:true});image.addEventListener('error',done,{once:true});
+        revealListeners.push(()=>{image.removeEventListener('load',done);image.removeEventListener('error',done);});
+      }
+      // Slow or unavailable artwork must never leave a permanent frost layer.
+      revealWaitTimer=setTimeout(clear,2600);
+    });
+  }
   const appearanceDock=$('appearanceDock'),themeToggle=$('themeToggle'),appearanceToggle=$('appearanceToggle'),appearancePopover=$('appearancePopover'),intensitySlider=$('outerIntensity'),intensityValue=$('outerIntensityValue');
   const setting=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch(_){return fallback;}};
   const remember=(key,value)=>{try{localStorage.setItem(key,String(value));}catch(_){}};
@@ -43,7 +80,8 @@
       if(album&&!album.color)void C.analyze(album).then(color=>{if(revision===outerRevision)paint(color);});
     }
   }
-  document.addEventListener('fullscreenchange',()=>{const full=!!document.fullscreenElement;outerFrame.hidden=full;appearanceDock.hidden=full;if(full)closeAppearance();});
+  document.addEventListener('fullscreenchange',()=>{cancelReveal();const full=!!document.fullscreenElement;outerFrame.hidden=full;appearanceDock.hidden=full;if(full)closeAppearance();});
+  window.addEventListener('pagehide',cancelReveal);
   let currentStep='landing', hasProject=false, ready=false, draft=null, draftCornerIndices=null, importData=null, dismissed=new Set(), saveTimer, saveQueue=Promise.resolve(), gradientRevision=0, toastTimer;
   let activeDraft=false;
   root.innerHTML='<div class="arrival"><div class="arrival-backdrop" aria-hidden="true"></div><section class="stage landing" id="stage" aria-label="Create your Cornerstone wall"></section></div>';
@@ -51,6 +89,7 @@
   for(let i=0;i<60;i++){const tile=document.createElement('span');tile.className='arrival-tile';tile.style.setProperty('--bx',`${(i%10)/9*100}%`);tile.style.setProperty('--by',`${Math.floor(i/10)/5*100}%`);tile.style.setProperty('--delay',`${-(i%9)*2}s`);backdrop.append(tile);}
   function bind(id,fn){$(id)?.addEventListener('click',fn);}
   function show(markup,type='glass corner-glass'){
+    cancelReveal();
     document.body.classList.add('onboarding');const stage=$('stage');stage.className='stage '+type;stage.innerHTML=markup;stage.style.animation='none';void stage.offsetWidth;stage.style.animation='';
     document.querySelector('.app').inert=true;
     requestAnimationFrame(()=>stage.querySelector('h1,h2')?.focus({preventScroll:true}));
@@ -108,15 +147,16 @@
     const suggestions=C.recommend(importData?.artists||[],pools,A.state.albums,need);
     if(!suggestions.length){$('suggestions').textContent=need?'No more suitable albums are available here. Search your favorites or keep a smaller, fully filled wall.':'All 60 places are filled, without repeating an album.';$('acceptAll').hidden=true;}
     for(const album of suggestions){const card=document.createElement('article');card.className='suggestion';const im=new Image();im.loading='lazy';im.src=album.thumb||album.art;im.alt=album.title;im.onerror=()=>{im.alt='Cover unavailable';};const title=document.createElement('strong');title.textContent=album.title;title.title=album.title;const artist=document.createElement('small');artist.textContent=album.suggestedBy;const badge=document.createElement('small');badge.textContent='Suggested · not listening history';const actions=document.createElement('div');actions.className='suggestion-actions';for(const [label,desc,fn]of [['+','Accept '+album.title,()=>accept([album])],['↻','Replace '+album.title,()=>{dismissed.add(C.identity(album));recommendationScreen();}],['×','Dismiss '+album.title,()=>{dismissed.add(C.identity(album));importData.pools=importData.pools.map(p=>p.filter(a=>C.identity(a)!==C.identity(album)));recommendationScreen();}]]){const b=document.createElement('button');b.textContent=label;b.title=desc;b.setAttribute('aria-label',desc);b.onclick=fn;actions.append(b);}card.append(im,title,artist,badge,actions);$('suggestions').append(card);}
-    $('useCollection').disabled=count<4;bind('acceptAll',()=>accept(suggestions));bind('manualCompletion',()=>pick(A.state.albums));bind('useCollection',()=>{activeDraft=false;draft=A.state.albums.slice();enterEditor();});void save();
+    $('useCollection').disabled=count<4;bind('acceptAll',()=>accept(suggestions));bind('manualCompletion',()=>pick(A.state.albums));bind('useCollection',()=>{activeDraft=false;draft=A.state.albums.slice();enterEditor({reveal:true});});void save();
   }
   function accept(items){A.state.albums=C.unique(A.state.albums.concat(items));draft=A.state.albums.slice();activeDraft=false;void gradient(draft);recommendationScreen();}
   function resume(){if(activeDraft&&draft?.length){pick(draft,draftCornerIndices);return;}updateOuterFrame(A.state.mode==='albums'?A.state.albums:[]);if(importData&&currentStep!=='editor'&&!importData.completed&&A.state.albums.length<60){recommendationScreen();return;}enterEditor();}
-  function enterEditor(){
+  function enterEditor({reveal=false}={}){
     if(importData)importData.completed=true;
     currentStep='editor';activeDraft=false;document.body.classList.remove('onboarding');document.querySelector('.app').inert=false;hasProject=true;
     $('detail').value=A.state.detail;$('frameSize').value=A.state.frameInches;$('speed').value=A.state.speed;
-    A.applySettings({mode:A.state.mode,detail:A.state.detail,frame:A.state.frame,motion:A.state.motion});
+    if(reveal)startReveal();
+    A.applySettings({mode:A.state.mode,detail:A.state.detail,frame:A.state.frame,motion:A.state.motion,wave:!reveal});
     $('arrangement').value=A.state.arrangement;void gradient(A.state.mode==='albums'?A.state.albums:[]);changed();
     if(A.state.mode==='albums')void analyzeCollection();
   }
@@ -148,8 +188,8 @@
   }
   $('projectFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>30000000)throw Error('This project file is too large.');const data=validateProject(JSON.parse(await file.text()));Object.assign(A.state,data.state);draft=A.state.albums.slice();draftCornerIndices=null;A.setRackLatestId(data.rackLatestId);importData=null;enterEditor();toast('Project opened.');}catch(err){toast(err.message);}e.target.value='';};
   document.querySelector('.controls').addEventListener('input',changed);document.querySelector('.controls').addEventListener('click',changed);
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)void save();});
-  window.CornerstoneStudio={changed,draftChanged,save,enterEditor,drawFrame,importProgress:count=>{const el=$('importProgress');if(el)el.textContent=`${count} unique albums found…`;},imported:async result=>{importData=result;draft=result.albums.slice();draftCornerIndices=null;activeDraft=false;A.state.detail=5;await save();void gradient(draft);recommendationScreen();},importFailed:message=>{connect();toast(message);}};
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelReveal();void save();}});
+  window.CornerstoneStudio={changed,draftChanged,save,enterEditor,drawFrame,startReveal,cancelReveal,importProgress:count=>{const el=$('importProgress');if(el)el.textContent=`${count} unique albums found…`;},imported:async result=>{importData=result;draft=result.albums.slice();draftCornerIndices=null;activeDraft=false;A.state.detail=5;await save();void gradient(draft);recommendationScreen();},importFailed:message=>{connect();toast(message);}};
   async function boot(){
     try{const project=await C.get('project');if(project?.version===3){Object.assign(A.state,project.state);A.state.albums=C.unique(A.state.albums||[]);draft=project.draft;draftCornerIndices=Array.isArray(project.draftCornerIndices)&&project.draftCornerIndices.length===4&&project.draftCornerIndices.every(index=>Number.isInteger(index)&&index>=-1&&index<(draft?.length||0))&&new Set(project.draftCornerIndices.filter(index=>index>=0)).size===project.draftCornerIndices.filter(index=>index>=0).length?project.draftCornerIndices:null;A.setRackLatestId(project.rackLatestId);activeDraft=project.activeDraft;importData=project.importData;dismissed=new Set(project.dismissed||[]);hasProject=true;}else if(A.state.customAlbums){A.state.albums=C.unique(A.state.albums);A.state.mode='albums';hasProject=true;}}catch(_){$('saveStatus').textContent='Browser storage is unavailable. Use Save project file to keep a copy.';}
     ready=true;

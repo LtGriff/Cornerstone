@@ -15,6 +15,14 @@ document.getElementById('preview').onclick=async()=>{
  result.textContent='Local visual fixture: four cornerstones and 24 synthetic album covers.';
 };
 document.getElementById('previewTheme').onclick=()=>frame.contentDocument.getElementById('themeToggle').click();
+document.getElementById('previewReveal').onclick=async()=>{
+ await new Promise(resolve=>{frame.onload=resolve;frame.src='/?qa-reveal='+Date.now();});
+ const w=frame.contentWindow,d=w.document,albums=covers().slice(0,60);
+ for(let attempt=0;attempt<100&&!d.getElementById('startCreating');attempt++)await pause(20);
+ w.CornerstoneApp.openPicker(albums);
+ d.getElementById('applyAlbums').click();
+ result.textContent='Local preview: the selected 60-album wall clears from the center. Press again to replay.';
+};
 document.getElementById('run').onclick=async()=>{
  result.textContent='';const log=s=>result.textContent+=s+'\n',assert=(ok,name)=>{if(!ok)throw Error(name);log('PASS '+name);};
  try{
@@ -136,6 +144,20 @@ document.getElementById('run').onclick=async()=>{
  assert(d.getElementById('selectedCollectionView').hidden&&d.getElementById('selectedCollectionCount').textContent==='(60)','Full collection remains available in its separate view without a default strip');
  d.getElementById('closeAlbumDialog').click();await pause(350);
  C.artists=originalArtists;C.albums=originalAlbums;
+ A.openPicker(all.slice(0,8));d.getElementById('applyAlbums').click();
+ assert(!!d.querySelector('#screen .wall-reveal')&&d.querySelector('#screen .wall-reveal').getAttribute('aria-hidden')==='true','Creating an eight-album wall starts a non-interactive frost reveal');
+ await pause(100);
+ const melting=d.querySelector('#screen .wall-reveal');
+ assert(!!melting&&melting.classList.contains('is-clearing')&&getComputedStyle(melting).backdropFilter.includes('blur')&&getComputedStyle(melting).pointerEvents==='none','The completed wall clears from a non-blocking frosted overlay');
+ assert(!d.querySelector('#grid .wave-in'),'Album tiles remain still while the frost reveals the artwork');
+ if(melting.classList.contains('is-radial'))assert(getComputedStyle(melting).maskImage.includes('radial-gradient'),'Supported browsers clear from the center outward');
+ await pause(1700);
+ assert(!d.querySelector('#screen .wall-reveal')&&d.querySelectorAll('#grid .front img').length===8,'Reveal fully cleans up and leaves a sharp, usable smaller wall');
+ S.startReveal();assert(!!d.querySelector('.wall-reveal'),'A new reveal may start for another wall');
+ A.setDevice(true);assert(!d.querySelector('.wall-reveal'),'Changing preview shape interrupts and removes the overlay');
+ S.startReveal();d.getElementById('backToStart').click();assert(!d.querySelector('.wall-reveal'),'Returning to onboarding interrupts the reveal');S.enterEditor();
+ const reducedMatch=w.matchMedia;w.matchMedia=query=>query.includes('prefers-reduced-motion')?{matches:true}:reducedMatch.call(w,query);
+ S.startReveal();assert(!d.querySelector('.wall-reveal'),'Reduced motion shows the artwork immediately');w.matchMedia=reducedMatch;
  A.setAlbums(all.slice(0,60));S.enterEditor();A.state.motion=false;A.applySettings({motion:false});
  const screen=d.getElementById('screen');
  ['a','b','c','d'].forEach((key,i)=>assert(screen.style.getPropertyValue(`--bleed-${key}`)===`rgb(${C.vividColor(all[C.cornerToStorage[i]].color).join(',')})`,'Live wallpaper frame corner '+(i+1)+' uses its selected album color'));
@@ -153,8 +175,9 @@ document.getElementById('run').onclick=async()=>{
  d.querySelector('.suggestion-actions button:nth-child(2)').click();assert(d.querySelectorAll('.suggestion').length===15,'Replace suggestion replenishes grid');
  d.querySelector('.suggestion-actions button').click();assert(A.state.albums.length===46,'Individual acceptance preserves imported albums');
  d.getElementById('acceptAll').click();assert(A.state.albums.length===60,'Accept all completes exactly 60');assert(C.unique(A.state.albums).length===60,'Completion has no duplicate albums');
- d.getElementById('useCollection').click();await S.save();const stored=await C.get('project');assert(stored.state.albums.length===60&&stored.state.albums[0].art.startsWith('data:'),'IndexedDB retains uploaded artwork');
+ d.getElementById('useCollection').click();assert(!!d.querySelector('.wall-reveal'),'Completing a Spotify-sourced collection starts the same reveal');await S.save();const stored=await C.get('project');assert(stored.state.albums.length===60&&stored.state.albums[0].art.startsWith('data:'),'IndexedDB retains uploaded artwork');
  await new Promise(resolve=>{frame.onload=resolve;frame.src='/?qa-reload=1';});await pause(250);w=frame.contentWindow;d=w.document;assert(!!d.getElementById('resumeProject'),'Returning visitor offered saved project');assert(!d.getElementById('outerWebsiteFrame').style.getPropertyValue('--outer-corner-1'),'Saved colors remain neutral before resume');assert(d.documentElement.dataset.theme==='day'&&d.getElementById('outerIntensity').value==='35','Theme and frame intensity survive reload');d.getElementById('resumeProject').click();assert(!d.body.classList.contains('onboarding'),'Returning completed collection opens editor');assert(w.CornerstoneApp.state.albums.length===60,'Reload keeps collection');assert(d.getElementById('outerWebsiteFrame').dataset.activeCorners==='4','Resume restores four frame colors');
+ assert(!d.querySelector('.wall-reveal'),'Resuming a saved project does not replay the reveal');
  assert(d.getElementById('outerWebsiteFrame').style.getPropertyValue('--outer-intensity')==='35%','Saved intensity also applies after resume');
  assert(!d.documentElement.scrollWidth||d.documentElement.scrollWidth<=d.documentElement.clientWidth+1,`No horizontal overflow (${d.documentElement.scrollWidth} scroll / ${d.documentElement.clientWidth} client)`);
  await new Promise(resolve=>{frame.onload=resolve;frame.src='/?wallpaper=1&qa=1';});await pause(100);w=frame.contentWindow;d=w.document;
