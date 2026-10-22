@@ -41,17 +41,21 @@ document.getElementById('run').onclick=async()=>{
  A.openPicker([]);
  const picker=d.getElementById('albumDialog');
  assert([...d.querySelectorAll('#cornerSlots button img')].length===0&&outer.dataset.activeCorners==='0','Fresh picker begins with four empty physical corners');
+ assert(d.getElementById('vinylRack').dataset.empty==='true'&&d.getElementById('pickerRackCount').textContent==='0 / 60 albums'&&d.getElementById('selectedCollection').hidden,'Empty collection shows an accessible empty rack');
  d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);d.querySelector('#albumResults .artist-choice').click();await pause(15);
  for(let i=0;i<3;i++){
   d.querySelectorAll('#albumResults .album-card')[i].click();
   const slotImages=[...d.querySelectorAll('#cornerSlots button')].map(button=>button.querySelector('img')?.alt||null);
   assert(slotImages[i]===all[60+i].title&&slotImages.slice(i+1).every(value=>value===null)&&outer.dataset.activeCorners===String(i+1),`Selection ${i+1} fills only its visible physical corner`);
   assert(outer.style.getPropertyValue(`--outer-corner-${i+1}`)===`rgba(${all[60+i].color.join(',')},.92)`,`Selection ${i+1} colors the matching outer corner`);
+  assert(d.getElementById('pickerRackCount').textContent===`${i+1} / 60 albums`&&d.getElementById('vinylRackTitle').textContent===all[60+i].title&&A.getRackLatestId()===C.identity(all[60+i]),`Rack immediately shows selection ${i+1} without delaying collection data`);
  }
  await S.save();const partial=await C.get('project');
  assert(partial.version===3&&partial.draftCornerIndices.join(',')==='0,1,2,-1','Partial visual corner positions persist without changing project version');
+ assert(partial.rackLatestId===C.identity(all[62]),'Latest rack album persists with the local project');
  d.getElementById('closeAlbumDialog').click();await pause(350);A.openPicker(partial.draft,partial.draftCornerIndices);
  assert(d.querySelectorAll('#cornerSlots button')[2].querySelector('img')?.alt===all[62].title&&!d.querySelectorAll('#cornerSlots button')[3].querySelector('img'),'Saved three-corner draft restores bottom-left without filling bottom-right');
+ assert(d.getElementById('vinylRackTitle').textContent===all[62].title&&!d.querySelector('.vinyl-flight'),'Reopening a saved collection restores newest cover without replaying motion');
  d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);d.querySelector('#albumResults .artist-choice').click();await pause(15);
  d.querySelectorAll('#albumResults .album-card')[3].click();
  assert(d.querySelectorAll('#cornerSlots button')[3].querySelector('img')?.alt===all[63].title&&A.getDraft().slice(0,4).map(album=>album.title).join(',')===[all[60],all[61],all[63],all[62]].map(album=>album.title).join(','),'Fourth choice fills bottom-right while storage remains clockwise');
@@ -88,6 +92,26 @@ document.getElementById('run').onclick=async()=>{
  assert(outer.style.getPropertyValue('--outer-corner-3')===`rgba(${all[60].color.join(',')},.92)`&&[...d.querySelectorAll('#selectedShelf img')][3].alt===all[60].title&&new Set([...d.querySelectorAll('#selectedShelf img')].map(im=>im.alt)).size===6,'Third visual slot swaps into bottom-left without shifting stored order or duplicating albums');
  d.getElementById('backAlbumDialog').click();await pause(350);assert(!picker.open,'Back closes album selector');
  A.openPicker(all.slice(0,4));d.getElementById('closeAlbumDialog').click();await pause(350);assert(!picker.open,'Close button dismisses album selector');
+ A.openPicker([]);
+ assert(d.getElementById('vinylRack').dataset.empty==='true','Rack resets to empty for a new collection');
+ d.getElementById('albumSearch').value='Test Artist';d.getElementById('albumSearchForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await pause(15);d.querySelector('#albumResults .artist-choice').click();await pause(60);
+ assert(d.querySelector('#albumResults .album-card img').naturalWidth>0,'Synthetic artwork is ready for the flight');
+ d.querySelectorAll('#albumResults .album-card')[0].click();
+ assert(!!d.querySelector('.vinyl-flight'),'A successful album choice starts the visual-only flight');
+ for(let i=1;i<3;i++)d.querySelectorAll('#albumResults .album-card')[i].click();
+ assert(A.getDraft().length===3&&d.getElementById('vinylRackTitle').textContent===all[62].title&&d.querySelectorAll('.vinyl-flight').length<=1,'Rapid selections retain every album and only one flight');
+ await pause(550);assert(!d.querySelector('.vinyl-flight'),'Flight artwork is removed after settling');
+ d.querySelectorAll('#albumResults .album-card')[2].click();
+ assert(A.getDraft().length===2&&!d.querySelector('.vinyl-flight'),'Clicking an already selected album removes it without an addition flight');
+ const originalMatchMedia=w.matchMedia;w.matchMedia=query=>query.includes('prefers-reduced-motion')?{matches:true}:originalMatchMedia.call(w,query);
+ d.querySelectorAll('#albumResults .album-card')[3].click();
+ assert(A.getDraft().length===3&&!d.querySelector('.vinyl-flight'),'Reduced motion adds the album without flying artwork');w.matchMedia=originalMatchMedia;
+ d.querySelectorAll('#albumResults .album-card')[4].click();d.getElementById('closeAlbumDialog').click();
+ assert(A.getDraft().length===4&&!d.querySelector('.vinyl-flight'),'Closing mid-animation cleans up flight without losing the album');await pause(350);
+ A.openPicker(all.slice(0,60));
+ assert(d.getElementById('vinylRack').dataset.complete==='true'&&d.getElementById('pickerRackCount').textContent.includes('complete'),'A full 60-album rack has a subtle completion state');
+ assert(d.getElementById('selectedCollection').open===false,'Selected-album removal remains available without a busy default strip');
+ d.getElementById('closeAlbumDialog').click();await pause(350);
  C.artists=originalArtists;C.albums=originalAlbums;
  A.setAlbums(all.slice(0,60));S.enterEditor();A.state.motion=false;A.applySettings({motion:false});
  const screen=d.getElementById('screen');

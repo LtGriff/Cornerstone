@@ -723,8 +723,19 @@
         </details>
       </div>
       <div class="picker-footer">
-        <div class="picker-rack-reserve" aria-label="Collection progress"><span class="picker-rack-preview" aria-hidden="true"></span><span>Collection progress</span><strong id="pickerRackCount">0 / 60</strong></div>
-        <div class="selected-shelf" id="selectedShelf" aria-label="Selected albums"></div>
+        <div class="vinyl-progress" aria-label="Collection progress">
+          <div class="vinyl-rack" id="vinylRack" data-empty="true" aria-hidden="true">
+            <span class="vinyl-rack-shadow"></span>
+            <span class="vinyl-rack-sleeve"><img id="vinylRackCover" alt="" hidden></span>
+            <svg class="vinyl-rack-wires" viewBox="0 0 116 76" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M14 59 31 48h70L84 59H14Z"/><path d="M14 59v8l70 1V59m17-11v8L84 68"/>
+              <path d="m24 53 1-24m11 20 1-28m13 28V18m15 31V17m15 32V20m14 29V27"/>
+              <path d="M17 58h71m-62 8h58"/>
+            </svg>
+          </div>
+          <div class="vinyl-progress-copy"><span class="vinyl-progress-kicker">YOUR COLLECTION</span><strong id="vinylRackTitle">An empty rack, for now</strong><span id="pickerRackCount" role="status" aria-live="polite" aria-atomic="true">0 / 60 albums</span></div>
+        </div>
+        <details class="selected-collection" id="selectedCollection" hidden><summary>View &amp; remove selected albums</summary><div class="selected-shelf" id="selectedShelf" aria-label="Selected albums"></div></details>
         <div class="picker-foot">
           <span class="picker-count" id="albumSelectionCount">0 selected</span>
           <button class="action" id="resetChart" type="button" hidden>Use chart test</button>
@@ -812,6 +823,11 @@
       let artistSearchResults = [];
       let draftAlbums = [];
       let draftCornerSlots = [null, null, null, null]; // visible TL, TR, BL, BR; saved albums stay clockwise
+      let rackLatestId = null;
+      let rackFlight = null;
+      let rackFlightAnimation = null;
+      let rackSettleAnimation = null;
+      let rackMotionRevision = 0;
       let cornerstoneTarget = null;
       let searchController = null;
       let searchSequence = 0;
@@ -1176,6 +1192,60 @@
       });
 
       const sameDraftAlbum = (a, b) => !!a && !!b && C.identity(a) === C.identity(b);
+      const draftSignature = () => `${draftAlbums.map(C.identity).join('|')}::${draftCornerSlots.map(album => album ? C.identity(album) : '').join('|')}`;
+      function cancelRackAnimation() {
+        ++rackMotionRevision;
+        rackFlightAnimation?.cancel(); rackSettleAnimation?.cancel();
+        rackFlight?.remove();
+        rackFlight = rackFlightAnimation = rackSettleAnimation = null;
+        $('vinylRack').classList.remove('is-settling');
+      }
+      function renderRack() {
+        const latest = draftAlbums.find(album => C.identity(album) === rackLatestId) || draftAlbums.at(-1) || null;
+        rackLatestId = latest ? C.identity(latest) : null;
+        const rack = $('vinylRack'), cover = $('vinylRackCover');
+        rack.dataset.empty = String(!latest);
+        rack.dataset.complete = String(draftAlbums.length === 60);
+        const art = latest?.thumb || latest?.art || '';
+        if (cover.getAttribute('src') !== art) { if (art) cover.src = art; else cover.removeAttribute('src'); }
+        cover.hidden = !art;
+        $('vinylRackTitle').textContent = latest ? latest.title : 'An empty rack, for now';
+        $('pickerRackCount').textContent = `${draftAlbums.length} / 60 albums${draftAlbums.length === 60 ? ' · complete' : ''}`;
+        $('selectedCollection').hidden = draftAlbums.length === 0;
+        if (!draftAlbums.length) $('selectedCollection').open = false;
+      }
+      function rackSource(image) {
+        return image?.complete && image.naturalWidth ? { rect:image.getBoundingClientRect(), src:image.currentSrc || image.src } : null;
+      }
+      function animateRackSelection(source) {
+        cancelRackAnimation();
+        if (!source || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const dialog = $('albumDialog'), rack = $('vinylRack'), destination = $('vinylRackCover');
+        if (!dialog.open || dialog.classList.contains('is-closing') || destination.hidden) return;
+        const from = source.rect, to = destination.getBoundingClientRect(), bounds = dialog.getBoundingClientRect();
+        if (!from.width || !from.height || !to.width || !to.height) return;
+        try {
+          const flight = document.createElement('img');
+          flight.className = 'vinyl-flight'; flight.src = source.src; flight.alt = '';
+          flight.style.cssText = `left:${from.left - bounds.left}px;top:${from.top - bounds.top}px;width:${from.width}px;height:${from.height}px`;
+          dialog.append(flight); rackFlight = flight;
+          const revision = rackMotionRevision;
+          const dx = to.left - from.left, dy = to.top - from.top, scale = to.width / from.width;
+          rackFlightAnimation = flight.animate([
+            { transform:'translate(0,0) scale(1)', opacity:1, offset:0 },
+            { transform:'translate(0,-9px) scale(1.03)', opacity:1, offset:.16 },
+            { transform:`translate(${dx}px,${dy - 11}px) scale(${scale})`, opacity:1, offset:.78 },
+            { transform:`translate(${dx}px,${dy}px) scale(${scale * .94})`, opacity:.92, offset:1 }
+          ], { duration:430, easing:'cubic-bezier(.22,.7,.22,1)', fill:'forwards' });
+          rackFlightAnimation.finished.then(() => {
+            if (revision !== rackMotionRevision || !dialog.open) return;
+            flight.remove(); rackFlight = rackFlightAnimation = null;
+            rack.classList.add('is-settling');
+            rackSettleAnimation = rack.animate([{ transform:'translateY(-2px)' },{ transform:'translateY(1px)' },{ transform:'translateY(0)' }], { duration:85, easing:'ease-out' });
+            rackSettleAnimation.finished.finally(() => { if (revision === rackMotionRevision) { rack.classList.remove('is-settling'); rackSettleAnimation = null; } }).catch(() => {});
+          }).catch(() => { if (revision === rackMotionRevision) cancelRackAnimation(); });
+        } catch (_) { cancelRackAnimation(); }
+      }
       function syncDraftOrder() {
         const fixed = [draftCornerSlots[0], draftCornerSlots[1], draftCornerSlots[3], draftCornerSlots[2]].filter(Boolean);
         const fixedIds = new Set(fixed.map(C.identity));
@@ -1195,7 +1265,7 @@
       }
       function updateDraftCount() {
         $('albumSelectionCount').textContent = `${draftAlbums.length} / 60 selected`;
-        $('pickerRackCount').textContent = `${draftAlbums.length} / 60`;
+        renderRack();
         $('applyAlbums').disabled = draftCornerSlots.some(choice => !choice);
         window.CornerstoneStudio?.draftChanged(draftAlbums, draftCornerSlots.slice());
         const shelf = $('selectedShelf');
@@ -1262,12 +1332,16 @@
           artist.textContent = [album.artist, album.year].filter(Boolean).join(' · ');
           card.append(image, title, artist);
           card.addEventListener('click', () => {
+            const before = draftSignature(), source = rackSource(image);
             const existing = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
             if (cornerstoneTarget !== null) placeCornerstone(album);
             else if (existing >= 0) removeDraftAlbum(album);
             else addDraftAlbum(album);
+            const added = before !== draftSignature() && draftAlbums.some(choice => sameDraftAlbum(choice, album));
+            if (added) rackLatestId = C.identity(album);
             renderAlbumResults();
             updateDraftCount();
+            if (added) animateRackSelection(source);
           });
           container.append(card);
         });
@@ -1313,6 +1387,7 @@
       }
 
       function openPicker(albums, cornerIndices) {
+        cancelRackAnimation();
         draftAlbums = C.unique(albums || (state.customAlbums ? state.albums : []));
         draftCornerSlots = C.cornerToStorage.map((index, position) => {
           const savedIndex = Array.isArray(cornerIndices) ? cornerIndices[position] : index;
@@ -1333,6 +1408,7 @@
       let pickerCloseTimer;
       function closePicker(){
         const dialog=$('albumDialog');if(!dialog.open||dialog.classList.contains('is-closing'))return;
+        cancelRackAnimation();
         if(matchMedia('(prefers-reduced-motion: reduce)').matches){dialog.close();return;}
         dialog.classList.add('is-closing');
         pickerCloseTimer=setTimeout(()=>{dialog.close();dialog.classList.remove('is-closing');},170);
@@ -1367,7 +1443,7 @@
         searchDebounce=setTimeout(searchArtists,550);
       });
       $('albumSearchForm').addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchDebounce);void searchArtists();});
-      $('albumDialog').addEventListener('close',()=>{clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
+      $('albumDialog').addEventListener('close',()=>{cancelRackAnimation();clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
 
       async function manualArtworkData(file) {
         const url = URL.createObjectURL(file);
@@ -1401,11 +1477,15 @@
             year: 'Your artwork',
             art: await manualArtworkData(file)
           };
+          const before = draftSignature();
           if(cornerstoneTarget!==null)placeCornerstone(album);else addDraftAlbum(album);
+          const added = before !== draftSignature() && draftAlbums.some(choice => sameDraftAlbum(choice, album));
+          if (added) rackLatestId = C.identity(album);
           albumSearchResults.unshift(album);
           $('albumResults').classList.remove('artist-results');
           renderAlbumResults();
           updateDraftCount();
+          if (added) animateRackSelection(rackSource($('albumResults').querySelector('.album-card img')));
           event.target.reset();
           $('albumSearchStatus').textContent = `${album.title} was added. ${draftAlbums.length < 4 ? `${4 - draftAlbums.length} more needed.` : 'Ready to use.'}`;
         } catch (_) {
@@ -1681,6 +1761,8 @@
       window.CornerstoneApp = {
         state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount,
         getDraft:()=>draftAlbums,
+        getRackLatestId:()=>rackLatestId,
+        setRackLatestId:id=>{rackLatestId=typeof id==='string'?id:null;},
         setDraft:items=>{draftAlbums=C.unique(items);draftCornerSlots=C.cornerToStorage.map(index=>draftAlbums[index]||null);renderAlbumResults();updateDraftCount();},
         targetCorner:position=>{cornerstoneTarget=position; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
         finishSpotifyImport,

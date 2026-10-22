@@ -214,10 +214,26 @@ dialog::backdrop { background:#0e101468 !important; backdrop-filter:blur(8px); }
 #albumDialog .artist-choice:hover { background:#ffffff22; }
 #albumDialog .manual-cover { margin-top:12px; }
 #albumDialog .picker-footer { min-width:0;padding:11px 30px 13px;border-top:1px solid #ffffff2d;background:#13192248;backdrop-filter:blur(18px); }
-#albumDialog .picker-rack-reserve { display:flex;align-items:center;gap:8px;min-height:25px;color:#d4d0d9;font-size:11px;letter-spacing:.02em; }
-#albumDialog .picker-rack-preview { width:19px;height:19px;flex:none;border:1px solid #ffffff6a;border-radius:5px;background:#ffffff1d; }
-#albumDialog .picker-rack-reserve strong { margin-left:auto;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums; }
-#albumDialog .selected-shelf { min-height:47px;margin-top:6px;padding:4px; }
+#albumDialog .vinyl-progress { display:flex;align-items:center;gap:12px;min-width:0;min-height:68px;padding:2px 12px 2px 5px;border:1px solid #ffffff2f;border-radius:15px;background:linear-gradient(125deg,#0d1119a8,#ffffff0b 78%);box-shadow:inset 0 1px #ffffff17; }
+#albumDialog .vinyl-rack { position:relative;isolation:isolate;flex:0 0 116px;width:116px;height:70px; }
+#albumDialog .vinyl-rack-shadow { position:absolute;left:15px;right:14px;bottom:6px;height:10px;border-radius:50%;background:#05070bc9;filter:blur(5px); }
+#albumDialog .vinyl-rack-sleeve { position:absolute;left:33px;top:6px;z-index:1;width:50px;height:50px;overflow:hidden;border:1px solid #d6d1dc55;border-radius:3px;background:linear-gradient(145deg,#424552,#222733);box-shadow:1px 3px 8px #0008;transform:rotate(-3deg) skewY(-2deg); }
+#albumDialog .vinyl-rack-sleeve img { display:block;width:100%;height:100%;object-fit:cover; }
+#albumDialog .vinyl-rack[data-empty=true] .vinyl-rack-sleeve { opacity:.36; }
+#albumDialog .vinyl-rack-wires { position:absolute;inset:0;z-index:2;width:100%;height:100%;stroke:#606b76;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px 1px #020407); }
+#albumDialog .vinyl-rack-wires path:first-child { fill:#11151dcc;stroke:#87919c; }
+#albumDialog .vinyl-rack-wires path:nth-child(2) { fill:#0c1017e6;stroke:#4b5662; }
+#albumDialog .vinyl-rack-wires path:last-child { stroke:#a5b1ba;stroke-width:2.4; }
+#albumDialog .vinyl-rack[data-complete=true] .vinyl-rack-wires { filter:drop-shadow(0 0 5px #d8c2e67d) drop-shadow(0 2px 1px #020407); }
+#albumDialog .vinyl-progress-copy { display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;line-height:1.25; }
+#albumDialog .vinyl-progress-kicker { color:var(--picker-subtle);font-size:9px;font-weight:700;letter-spacing:.16em; }
+#albumDialog .vinyl-progress-copy strong { overflow:hidden;color:#f5f3f7;font-size:13px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
+#albumDialog #pickerRackCount { color:#d2c8de;font-size:11px;font-variant-numeric:tabular-nums; }
+#albumDialog .vinyl-flight { position:absolute;z-index:20;display:block;object-fit:cover;pointer-events:none;border-radius:6px;box-shadow:0 10px 24px #0008;transform-origin:top left;will-change:transform,opacity; }
+#albumDialog .selected-collection { margin-top:5px; }
+#albumDialog .selected-collection summary { width:max-content;max-width:100%;padding:3px 0;color:var(--picker-subtle);cursor:pointer;font-size:11px; }
+#albumDialog .selected-collection summary:hover { color:#f2e8fb; }
+#albumDialog .selected-shelf { min-height:47px;max-height:54px;margin-top:3px;padding:4px; }
 #albumDialog .selected-mini { flex-basis:36px;width:36px;height:36px; }
 #albumDialog .picker-foot { margin-top:8px;padding-top:9px; }
 #albumDialog .picker-foot .action { min-height:40px; }
@@ -226,7 +242,7 @@ html[data-theme=day] #albumDialog { --picker-surface:#f4f7f3b8;--picker-edge:#ff
 html[data-theme=day] #albumDialog::backdrop { background:#34404d63!important; }
 html[data-theme=day] #albumDialog .picker-shell { background:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--corner-w) 11%,transparent),transparent 55%),radial-gradient(ellipse at 100% 100%,color-mix(in srgb,var(--corner-z) 10%,transparent),transparent 55%); }
 html[data-theme=day] #albumDialog .picker-head,html[data-theme=day] #albumDialog .picker-footer { border-color:#6a78823d; }
-html[data-theme=day] #albumDialog .picker-kicker,html[data-theme=day] #albumDialog .retry-note,html[data-theme=day] #albumDialog .picker-rack-reserve { color:#46515c; }
+html[data-theme=day] #albumDialog .picker-kicker,html[data-theme=day] #albumDialog .retry-note { color:#46515c; }
 html[data-theme=day] #albumDialog .picker-back,html[data-theme=day] #albumDialog .dialog-close { color:#27323e;background:#ffffffb3;border-color:#7f8a946d; }
 html[data-theme=day] #albumDialog .picker-back:hover,html[data-theme=day] #albumDialog .dialog-close:hover { background:#fff; }
 html[data-theme=day] #albumDialog .corner-guide { background:#ffffff2d;border-color:#6a78822e; }
@@ -235,7 +251,10 @@ html[data-theme=day] #albumDialog .picker-main .album-search input { color:#2028
 html[data-theme=day] #albumDialog .album-card,html[data-theme=day] #albumDialog .artist-choice { color:#202833;background:#ffffffb8;border-color:#8c99a16b; }
 html[data-theme=day] #albumDialog .album-card[aria-pressed=true] { border-color:#8b5b9a;background:#ecddf2; }
 html[data-theme=day] #albumDialog .picker-footer { background:#f4f7f38c; }
-html[data-theme=day] #albumDialog .picker-rack-preview { border-color:#75838c;background:#ffffffa8; }
+html[data-theme=day] #albumDialog .vinyl-progress { background:linear-gradient(125deg,#e5e9e8d9,#ffffff67 78%);border-color:#78838d66; }
+html[data-theme=day] #albumDialog .vinyl-progress-copy strong { color:#26313c; }
+html[data-theme=day] #albumDialog #pickerRackCount { color:#50586b; }
+html[data-theme=day] #albumDialog .selected-collection summary:hover { color:#283747; }
 @media(max-width:600px){
  #albumDialog { width:calc(100vw - 12px);height:calc(var(--picker-visible-height,100dvh) - 12px);max-height:none;inset:calc(var(--picker-offset-top,0px) + 6px) 6px auto;margin:0 auto;border-radius:23px; }
  #albumDialog .picker-head { grid-template-columns:57px minmax(0,1fr) 38px;gap:8px;padding:15px 15px 13px; }
@@ -252,6 +271,11 @@ html[data-theme=day] #albumDialog .picker-rack-preview { border-color:#75838c;ba
  #albumDialog .artist-results { grid-template-columns:1fr; }
  #albumDialog .artist-choice { min-height:58px; }
  #albumDialog .picker-footer { padding:8px 14px calc(9px + env(safe-area-inset-bottom)); }
+ #albumDialog .vinyl-progress { min-height:54px;gap:5px;padding:1px 8px 1px 0; }
+ #albumDialog .vinyl-rack { flex-basis:88px;width:88px;height:54px; }
+ #albumDialog .vinyl-rack-sleeve { left:25px;top:5px;width:38px;height:38px; }
+ #albumDialog .vinyl-progress-copy strong { font-size:12px; }
+ #albumDialog .vinyl-progress-kicker { font-size:8px; }
  #albumDialog .picker-foot { grid-template-columns:1fr 1fr;gap:7px; }
  #albumDialog .picker-count { grid-column:1/-1; }
  #albumDialog #resetChart[hidden] + #applyAlbums { grid-column:1/-1; }
@@ -264,7 +288,7 @@ html[data-theme=day] #albumDialog .picker-rack-preview { border-color:#75838c;ba
  #albumDialog .selected-shelf { min-height:36px; }
  #albumDialog .selected-mini { flex-basis:29px;width:29px;height:29px; }
 }
-@media(prefers-reduced-motion:reduce){#albumDialog[open],#albumDialog[open]::backdrop,#albumDialog.is-closing,#albumDialog.is-closing::backdrop{animation:none!important}#albumDialog .album-card{transition:none!important}}
+@media(prefers-reduced-motion:reduce){#albumDialog[open],#albumDialog[open]::backdrop,#albumDialog.is-closing,#albumDialog.is-closing::backdrop{animation:none!important}#albumDialog .album-card{transition:none!important}#albumDialog .vinyl-flight{display:none!important}}
 .range-consent { display:flex !important; gap:10px; align-items:flex-start; font-size:12px !important; font-weight:400 !important; color:#d1ccdc; }
 .range-consent input { width:auto !important; margin-top:3px; }
 .completion-progress { color:#eee7f7; font-size:26px; letter-spacing:-.04em; margin:8px 0 2px; }
