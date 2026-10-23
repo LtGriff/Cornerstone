@@ -1956,7 +1956,9 @@
         const cleanUrl = new URL(location.href);
         ['code', 'state', 'error'].forEach((key) => cleanUrl.searchParams.delete(key));
         history.replaceState({}, '', cleanUrl);
+        const clearSpotifyAuth = () => ['cornerstone-spotify-verifier', 'cornerstone-spotify-state', 'cornerstone-spotify-redirect'].forEach((key) => localStorage.removeItem(key));
         if (error) {
+          clearSpotifyAuth();
           $('screenLabel').textContent = 'Spotify connection was cancelled';
           return;
         }
@@ -1965,6 +1967,7 @@
         const clientId = localStorage.getItem('cornerstone-spotify-client-id');
         const redirectUri = localStorage.getItem('cornerstone-spotify-redirect') || spotifyRedirectUri();
         if (!verifier || !clientId || returnedState !== expectedState) {
+          clearSpotifyAuth();
           $('screenLabel').textContent = 'Spotify connection could not be verified';
           window.CornerstoneStudio?.importFailed('This Spotify sign-in expired or could not be verified. Please connect again.');
           return;
@@ -1988,7 +1991,7 @@
           $('screenLabel').textContent = importError.message || 'Spotify import failed';
           window.CornerstoneStudio?.importFailed(importError.message);
         } finally {
-          ['cornerstone-spotify-verifier', 'cornerstone-spotify-state', 'cornerstone-spotify-redirect'].forEach((key) => localStorage.removeItem(key));
+          clearSpotifyAuth();
         }
       }
 

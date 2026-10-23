@@ -1,6 +1,6 @@
 # Cornerstone
 
-An animated wall of colors or unique album covers. The app includes a chart test set and a no-login album picker powered by MusicBrainz and Cover Art Archive.
+An animated wall of colors or unique album covers. Album search uses MusicBrainz metadata and Cover Art Archive artwork. Spotify import is a private beta.
 
 ## Run it locally
 
@@ -16,36 +16,34 @@ No build or install step is currently required.
 
 ## Wallpaper export
 
-Choose albums or colors, adjust the detail and frame, then use **Save phone wallpaper** or **Save desktop wallpaper**. Cornerstone creates a completely filled PNG sized for either screen.
+Choose albums or colors, adjust the detail and wallpaper frame, then use **Save phone wallpaper** (1290 × 2796) or **Save desktop wallpaper** (3840 × 2160). The outer website frame and editing controls are not included. An external cover that cannot be loaded for canvas export may prevent a download; you can replace that album or supply your own cover.
 
 ## Spotify import
 
-Cornerstone uses Spotify's Authorization Code with PKCE flow, so no Client Secret is placed in the site. The public Client ID is configured in the page; visitors only click **Connect Spotify** and approve access. The import requests `user-top-read`, loads up to 50 top tracks for the selected period, and deduplicates them by album.
+Cornerstone uses Spotify's Authorization Code with PKCE flow, so no Client Secret is placed in the site. The public Client ID is configured in the page; approved testers click **Connect Spotify** and authorize `user-top-read`. The importer checks up to three 50-track pages in each enabled listening period, deduplicates by album, and offers optional suggestions from familiar artists when fewer than 60 unique albums are available. Suggestions are not represented as listening history.
 
-Spotify Development Mode currently requires the app owner to have Premium and supports up to five allowlisted users. Add each tester in the Spotify Developer Dashboard. Temporary authorization values are removed after import.
+Spotify Development Mode requires the app owner to have Premium and supports up to five allowlisted users. Add each tester in the Spotify Developer Dashboard. The redirect URI must exactly match the deployed URL, including the case of `/Cornerstone/` if that is the published path. Temporary authorization values are removed after import or cancellation; access tokens are not saved for automatic background updates. Reconnect to refresh the imported snapshot.
 
 ## Choosing albums
 
-Open **Albums**, choose **Choose your albums**, search for the artist, select the correct artist record, and then choose between 4 and 60 official album or EP covers. The first four choices become the permanent cornerstones. A manual artwork upload is available when the catalog is incomplete. The selected catalog entries are saved only in that browser on that device. Resetting to the chart test clears the saved selection.
+From **Start creating**, choose **Select my albums**, search for the artist, select the correct artist record, and choose at least four albums. The first four choices become the cornerstones; smaller and 60-album walls are supported. A manual artwork upload is available when the catalog is incomplete. Projects are saved in this browser on this device, with an optional project-file backup. They do **not** sync to other browsers or devices.
 
-## Personal music connection design
+## Music connections and artwork rights
 
-Cornerstone is designed around a one-time import rather than a permanent account connection:
+Spotify import is one-time and limited to approved beta testers. Apple Music personal-account import and cloud synchronization are not implemented. Account tokens must never be committed to GitHub or bundled into a wallpaper.
 
-1. The user connects Spotify or Apple Music and chooses a source such as top tracks, recent plays, or a playlist.
-2. Cornerstone deduplicates by album and saves the chosen snapshot.
-3. Nothing changes as listening habits change until the user deliberately presses **Refresh my music**.
-
-Account tokens should never be committed to GitHub or bundled into a shared wallpaper. A permanent offline artwork cache must use artwork the user supplies locally or a source whose terms permit that storage.
+Catalog artwork (Cover Art Archive), default chart artwork (Apple-hosted URLs), Spotify-imported artwork, example screenshots, and user uploads remain subject to the rights and terms of their providers and rights holders. API availability is not permission to redistribute album covers in downloadable wallpapers. Before a public release, review the intended artwork use (including crops, blur, animation, caching, and PNG downloads) with the relevant providers/rights holders. Users should upload only artwork they have permission to use. Cover Art Archive specifically cautions that use of its images is at the user's risk.
 
 ## Wallpaper Engine
 
 Cornerstone can be imported as a web wallpaper. In Wallpaper Engine, choose **Create Wallpaper** and drag in `dist/wallpaper.html`. The project should eventually bundle downloaded cover images locally before Workshop publishing so it does not depend on remote image servers.
 
-## Planned exports
+## Local checks
 
-- Spotify import using Authorization Code with PKCE and the user's top tracks
-- Apple Music import using MusicKit authorization
-- Local user-supplied cover cache with album-level deduplication
-- iPhone model presets and exact-size PNG wallpaper download
-- Wallpaper Engine user settings for tile count, frame, motion, and flip speed
+```powershell
+node --check dist/core.js
+node --check dist/studio.js
+node --test tests/core.test.cjs
+```
+
+Open `/__qa/browser.html?auto=1` on the local preview server to run the browser regression suite. Live Spotify authorization still requires an approved tester account and cannot be simulated by these tests.
