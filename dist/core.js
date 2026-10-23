@@ -31,8 +31,13 @@
     let h = d === 0 ? 0 : max===r ? ((g-b)/d)%6 : max===g ? (b-r)/d+2 : (r-g)/d+4;
     return { h:(h*60+360)%360, s:max ? d/max:0, l:(max+min)/2 };
   }
-  function ordered(items, mode='original', color='#df8b52', seed=1) {
+  function ordered(items, mode='original', color='#df8b52', seed=1, placementOrder=null) {
     const fixed=items.slice(0,4), rest=items.slice(4);
+    if(placementOrder?.mode===mode&&Array.isArray(placementOrder.ids)&&placementOrder.ids.length===rest.length){
+      const byIdentity=new Map(rest.map(album=>[identity(album),album]));
+      const placed=placementOrder.ids.map(id=>byIdentity.get(id));
+      if(placed.every(Boolean)&&new Set(placementOrder.ids).size===rest.length)return fixed.concat(placed);
+    }
     if (mode==='original') return items.slice();
     if (mode==='random') {
       let n=seed|0;
@@ -46,8 +51,8 @@
     }
     return fixed.concat(rest);
   }
-  function arrange(items,count,columns,mode,color,seed) {
-    const source=ordered(items,mode,color,seed), out=Array(count), pinned=corners(count,columns);
+  function arrange(items,count,columns,mode,color,seed,placementOrder) {
+    const source=ordered(items,mode,color,seed,placementOrder), out=Array(count), pinned=corners(count,columns);
     source.slice(0,4).forEach((a,i)=>out[pinned[i]]=a);
     let cursor=4;
     for(let i=0;i<count;i++)if(!out[i])out[i]=source[cursor++];

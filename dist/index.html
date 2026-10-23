@@ -362,6 +362,7 @@
     .spotify-note { margin: 0; color: #85848b; font-size: .75rem; }
 
     .workspace {
+      position: relative;
       min-height: 100vh;
       padding: clamp(22px, 4vw, 58px);
       display: grid;
@@ -480,6 +481,18 @@
     }
 
     .tile.cornerstone { z-index: 2; }
+    .tile.is-editable { cursor: pointer; }
+    .tile.is-editable:hover::before, .tile.is-editable.is-selected::before { content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none; box-shadow: inset 0 0 0 3px rgba(255,255,255,.88), inset 0 0 28px rgba(0,0,0,.35); }
+    .tile.is-editable:focus-visible { outline: 3px solid #fff; outline-offset: -3px; z-index: 5; }
+    .tile.is-replacing .tile-inner { animation: replace-cover .48s ease-in-out both; }
+    @keyframes replace-cover { 0%,100% { transform: rotateY(0) } 50% { transform: rotateY(90deg) } }
+    .wall-edit-actions { position: fixed; left: 50%; bottom: clamp(16px,3vw,34px); z-index: 6; display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 7px; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; background: rgba(25,27,34,.82); color: #fff; box-shadow: 0 12px 36px #0008; backdrop-filter: blur(20px); transform: translateX(-50%); }
+    .wall-edit-actions[hidden] { display: none; }
+    .wall-edit-actions span { overflow: hidden; max-width: 180px; padding-left: 8px; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .wall-edit-actions button { min-height: 36px; padding: 0 12px; border: 1px solid #ffffff55; border-radius: 999px; background: #ffffff1f; color: inherit; cursor: pointer; white-space: nowrap; }
+    .wall-edit-actions button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    body.onboarding .wall-edit-actions, body.wallpaper-mode .wall-edit-actions { display: none; }
+    body:has(.screen:fullscreen) .wall-edit-actions { display: none; }
     .tile.cornerstone::after {
       content: "";
       position: absolute;
@@ -689,6 +702,7 @@
           <span class="screen-label" id="screenLabel">12 tiles · four cornerstones · gentle motion</span>
         </div>
       </div>
+      <div class="wall-edit-actions" id="wallEditActions" hidden><span id="wallEditTitle"></span><button id="replaceTile" type="button">Replace album</button><button id="undoReplacement" type="button" hidden>Undo</button><button id="dismissTile" type="button" aria-label="Close album actions">×</button></div>
       <p class="tip">Every choice updates the preview immediately.</p>
     </section>
   </main>
@@ -709,6 +723,7 @@
           <button class="action" type="submit">Find artist</button>
         </form>
         <p class="search-status" id="albumSearchStatus">Choose four cornerstones, then complete your collection.</p>
+        <p class="replacement-notice" id="replacementNotice" role="status" hidden></p>
         <p class="retry-note">* If search says unavailable, wait a moment and search again.</p>
         <div class="release-filters" id="releaseFilters" role="group" aria-label="Release type" hidden>
           <button type="button" data-release-filter="albums" aria-pressed="true">Albums</button>
@@ -748,6 +763,7 @@
           <span class="picker-count" id="albumSelectionCount">0 selected</span>
           <button class="action" id="resetChart" type="button" hidden>Use chart test</button>
           <button class="action primary" id="applyAlbums" type="button" disabled>Use selected</button>
+          <button class="action primary" id="confirmReplacement" type="button" hidden disabled>Confirm replacement</button>
         </div>
         <p class="picker-credit">Search metadata by <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · artwork from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a></p>
       </div>
@@ -826,7 +842,7 @@
         colors: [],
         albums: startingAlbums,
         customAlbums: savedAlbums.length >= 4,
-        arrangement: 'original', colorPreference: '#d78c56', randomSeed: 1
+        arrangement: 'original', colorPreference: '#d78c56', randomSeed: 1, placementOrder: null
       };
 
       let flipTimer = null;
@@ -847,6 +863,11 @@
       let cornerstoneTarget = null;
       let searchController = null;
       let searchSequence = 0;
+      let selectedTile = null;
+      let replacementTarget = null;
+      let replacementCandidate = null;
+      let lastReplacement = null;
+      let replacementRevision = 0;
 
       function shuffledColors(count) {
         const pool = [...palette].sort(() => Math.random() - .5);
@@ -912,7 +933,16 @@
         tile.className = `tile${pinned ? ' cornerstone' : ''}`;
         tile.dataset.index = index;
         tile.dataset.art = album.art;
+        tile.dataset.albumId = C.identity(album);
         tile.dataset.pinned = String(pinned);
+        if (state.customAlbums && !wallpaperMode) {
+          tile.classList.add('is-editable');
+          tile.tabIndex = 0;
+          tile.setAttribute('role', 'button');
+          tile.setAttribute('aria-label', `${pinned ? 'Edit cornerstone' : 'Replace album'}: ${album.title} by ${album.artist}`);
+          tile.addEventListener('click', () => selectWallTile(tile));
+          tile.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectWallTile(tile); } });
+        }
         tile.innerHTML = '<div class="tile-inner"><div class="face front"></div><div class="face back"></div></div>';
         const frontImage = new Image();
         frontImage.crossOrigin = 'anonymous';
@@ -930,10 +960,11 @@
       }
 
       function arrangeWithCornerstones(items, count, columns) {
-        return C.arrange(items, count, columns, state.mode === 'albums' ? state.arrangement : 'original', state.colorPreference, state.randomSeed);
+        return C.arrange(items, count, columns, state.mode === 'albums' ? state.arrangement : 'original', state.colorPreference, state.randomSeed, state.mode === 'albums' ? state.placementOrder : null);
       }
 
       function renderGrid({ wave = false, refreshBleed = false } = {}) {
+        clearWallSelection();
         const grid = $('grid');
         const shape = gridShape();
         state.count = shape.count;
@@ -960,6 +991,115 @@
         restartMotion();
         window.CornerstoneStudio?.changed();
       }
+
+      function clearWallSelection() {
+        selectedTile?.classList.remove('is-selected');
+        selectedTile = null;
+        $('wallEditActions').hidden = true;
+      }
+
+      function selectWallTile(tile) {
+        if (document.body.classList.contains('onboarding') || wallpaperMode || document.fullscreenElement || state.mode !== 'albums' || !state.customAlbums) return;
+        if (selectedTile === tile) { clearWallSelection(); return; }
+        clearWallSelection();
+        selectedTile = tile;
+        tile.classList.add('is-selected');
+        const album = state.albums.find(item => C.identity(item) === tile.dataset.albumId);
+        if (!album) { clearWallSelection(); return; }
+        $('wallEditTitle').textContent = album.title;
+        $('replaceTile').hidden = false;
+        $('replaceTile').textContent = tile.dataset.pinned === 'true' ? 'Edit cornerstone' : 'Replace album';
+        $('undoReplacement').hidden = !lastReplacement;
+        $('wallEditActions').hidden = false;
+        $('replaceTile').focus({ preventScroll: true });
+      }
+
+      function currentPlacementIds() {
+        const seen = new Set();
+        const visible = [...$('grid').children].filter(tile => tile.dataset.pinned !== 'true').map(tile => tile.dataset.albumId).filter(id => id && !seen.has(id) && seen.add(id));
+        const remaining = C.ordered(state.albums, state.arrangement, state.colorPreference, state.randomSeed, state.placementOrder).slice(4).map(C.identity).filter(id => !seen.has(id) && seen.add(id));
+        return visible.concat(remaining);
+      }
+
+      $('dismissTile').addEventListener('click', clearWallSelection);
+      $('replaceTile').addEventListener('click', () => {
+        const tile = selectedTile;
+        if (!tile) return;
+        const index = state.albums.findIndex(album => C.identity(album) === tile.dataset.albumId);
+        if (index < 0) { clearWallSelection(); return; }
+        if (tile.dataset.pinned === 'true' || index < 4) {
+          openPicker(state.albums);
+          const visibleCorner = C.cornerToStorage.indexOf(index);
+          window.CornerstoneApp.targetCorner(visibleCorner);
+          clearWallSelection();
+          return;
+        }
+        openPicker(state.albums, null, { replacement: { index, tileIndex: Number(tile.dataset.index), oldId: C.identity(state.albums[index]), order: currentPlacementIds() } });
+      });
+
+      function paintReplacedTile(tile, album) {
+        if (!tile) return;
+        const revision = ++replacementRevision;
+        const update = () => {
+          if (revision !== replacementRevision || !tile.isConnected) return;
+          tile.querySelector('.front').replaceChildren();
+          const image = new Image();
+          image.crossOrigin = 'anonymous'; image.src = album.art;
+          image.alt = `${album.title} by ${album.artist}`;
+          image.addEventListener('error', () => { image.hidden = true; tile.querySelector('.front').textContent = 'Cover unavailable'; }, { once: true });
+          tile.querySelector('.front').append(image);
+          tile.dataset.art = album.art;
+          tile.dataset.albumId = C.identity(album);
+          tile.setAttribute('aria-label', `Replace album: ${album.title} by ${album.artist}`);
+        };
+        tile.classList.remove('is-flipping');
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) { update(); return; }
+        tile.classList.add('is-replacing');
+        setTimeout(update, 240);
+        setTimeout(() => { if (revision === replacementRevision) tile.classList.remove('is-replacing'); }, 500);
+      }
+
+      async function confirmAlbumReplacement() {
+        const target = replacementTarget, album = replacementCandidate;
+        if (!target || !album) return;
+        if (!album.art || album.artworkUnavailable) { $('albumSearchStatus').textContent = 'This cover is unavailable. Choose another album or add your own cover.'; return; }
+        if (C.identity(state.albums[target.index]) !== target.oldId) { $('albumSearchStatus').textContent = 'Your wall changed. Close this window and select the tile again.'; return; }
+        const next = state.albums.slice(); next[target.index] = album;
+        if (C.unique(next).length !== next.length) { $('albumSearchStatus').textContent = 'That album is already in your wall. Choose a different one.'; return; }
+        const oldAlbum = state.albums[target.index];
+        const previousOrder = state.placementOrder;
+        const tile = [...$('grid').children].find(item => item.dataset.albumId === target.oldId);
+        const tileIndex = tile ? Number(tile.dataset.index) : target.tileIndex;
+        const ids = (tile ? currentPlacementIds() : target.order).map(id => id === target.oldId ? C.identity(album) : id);
+        state.albums = next;
+        state.placementOrder = { mode: state.arrangement, ids };
+        lastReplacement = { index: target.index, previous: oldAlbum, currentId: C.identity(album), order: previousOrder, tileIndex };
+        replacementTarget = replacementCandidate = null;
+        clearWallSelection();
+        closePicker();
+        if (tile) paintReplacedTile(tile, album);
+        else renderGrid();
+        if (samplePoints.includes(tileIndex)) void refreshAlbumBleed();
+        window.CornerstoneStudio?.changed();
+        await window.CornerstoneStudio?.save();
+        $('undoReplacement').hidden = false;
+        $('wallEditTitle').textContent = `${album.title} added`;
+        $('replaceTile').hidden = true;
+        $('wallEditActions').hidden = false;
+      }
+
+      $('undoReplacement').addEventListener('click', async () => {
+        const undo = lastReplacement;
+        if (!undo || C.identity(state.albums[undo.index]) !== undo.currentId) return;
+        const next = state.albums.slice(); next[undo.index] = undo.previous;
+        if (C.unique(next).length !== next.length) return;
+        state.albums = next; state.placementOrder = undo.order; lastReplacement = null;
+        const tile = [...$('grid').children].find(item => item.dataset.albumId === undo.currentId);
+        if (tile) paintReplacedTile(tile, undo.previous);
+        else renderGrid();
+        clearWallSelection(); $('replaceTile').hidden = false;
+        await window.CornerstoneStudio?.save();
+      });
 
       const samplePoints = [3, 13, 17, 28, 36, 49, 59];
 
@@ -1069,7 +1209,7 @@
 
       function flipOne() {
         const allTiles = [...document.querySelectorAll('.tile')];
-        const tiles = allTiles.filter((candidate) => candidate.dataset.pinned !== 'true' && !candidate.classList.contains('is-flipping'));
+        const tiles = allTiles.filter((candidate) => candidate.dataset.pinned !== 'true' && !candidate.classList.contains('is-flipping') && !candidate.classList.contains('is-replacing') && candidate !== selectedTile);
         if (!tiles.length || !state.motion || document.hidden || document.body.classList.contains('onboarding')) return;
         const tile = tiles[Math.floor(Math.random() * tiles.length)];
         const back = tile.querySelector('.back');
@@ -1198,6 +1338,7 @@
         if (state.mode === 'albums') {
           state.arrangement = 'random';
           state.randomSeed = Date.now();
+          state.placementOrder = null;
           if ($('arrangement')) $('arrangement').value='random';
         } else {
           const anchors = state.colors.slice(0, 4);
@@ -1230,6 +1371,7 @@
         $('vinylRackTitle').textContent = latest ? latest.title : 'An empty rack, for now';
         $('pickerRackCount').textContent = `${draftAlbums.length} / 60 albums${draftAlbums.length === 60 ? ' · complete' : ''}`;
         $('selectedCollection').hidden = draftAlbums.length === 0;
+        if (replacementTarget) $('selectedCollection').hidden = true;
         $('selectedCollectionCount').textContent = `(${draftAlbums.length})`;
         if (!draftAlbums.length) closeSelectedCollection();
       }
@@ -1310,7 +1452,7 @@
         $('albumSelectionCount').textContent = `${draftAlbums.length} / 60 selected`;
         renderRack();
         $('applyAlbums').disabled = draftCornerSlots.some(choice => !choice);
-        window.CornerstoneStudio?.draftChanged(draftAlbums, draftCornerSlots.slice());
+        window.CornerstoneStudio?.draftChanged(draftAlbums, draftCornerSlots.slice(), { previewOnly: !!replacementTarget });
         const shelf = $('selectedShelf');
         shelf.replaceChildren();
         draftAlbums.forEach((album, index) => {
@@ -1327,6 +1469,7 @@
           badge.textContent = position >= 0 ? `C${position + 1}` : `${index + 1}`;
           button.append(image, badge);
           button.addEventListener('click', () => {
+            if (replacementTarget) return;
             removeDraftAlbum(album);
             renderAlbumResults();
             updateDraftCount();
@@ -1370,7 +1513,7 @@
           const card = document.createElement('button');
           card.type = 'button';
           card.className = 'album-card';
-          const selected = draftAlbums.some((choice) => C.identity(choice) === C.identity(album));
+          const selected = replacementTarget ? !!replacementCandidate && C.identity(replacementCandidate) === C.identity(album) : draftAlbums.some((choice) => C.identity(choice) === C.identity(album));
           const selectedIndex = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
           const selectedCorner = draftCornerSlots.findIndex(choice => sameDraftAlbum(choice, album));
           card.setAttribute('aria-pressed', String(selected));
@@ -1401,6 +1544,15 @@
           artist.textContent = [album.artist, album.year, releaseFilter === 'more' ? album.releaseType : null].filter(Boolean).join(' · ');
           card.append(image, title, artist);
           card.addEventListener('click', () => {
+            if (replacementTarget) {
+              if (!album.art || album.artworkUnavailable) { $('albumSearchStatus').textContent = 'This cover is unavailable. Choose another album or add your own cover.'; return; }
+              if (draftAlbums.some(choice => sameDraftAlbum(choice, album))) { $('albumSearchStatus').textContent = 'That album is already in your wall. Choose a different one.'; return; }
+              replacementCandidate = album;
+              $('replacementNotice').textContent = `Replace ${state.albums[replacementTarget.index].title} with ${album.title} by ${album.artist}?`;
+              $('confirmReplacement').disabled = false;
+              renderAlbumResults();
+              return;
+            }
             const before = draftSignature(), source = rackSource(image), cornerPosition = cornerstoneTarget === null ? draftCornerSlots.findIndex(choice => !choice) : cornerstoneTarget;
             const existing = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
             if (cornerstoneTarget !== null) placeCornerstone(album);
@@ -1482,10 +1634,12 @@
         finally {if(serial===searchSequence){loadMorePending=false;renderAlbumResults();}}
       }
 
-      function openPicker(albums, cornerIndices) {
+      function openPicker(albums, cornerIndices, options = {}) {
         window.CornerstoneStudio?.cancelReveal();
         cancelRackAnimation();
         closeSelectedCollection();
+        replacementTarget = options.replacement || null;
+        replacementCandidate = null;
         draftAlbums = C.unique(albums || (state.customAlbums ? state.albums : []));
         draftCornerSlots = C.cornerToStorage.map((index, position) => {
           const savedIndex = Array.isArray(cornerIndices) ? cornerIndices[position] : index;
@@ -1499,6 +1653,11 @@
         $('albumResults').classList.remove('artist-results');
         $('albumResults').replaceChildren();
         $('albumSearchStatus').textContent='Find an artist. Start with four albums that define your wall.';
+        $('replacementNotice').hidden = !replacementTarget;
+        $('replacementNotice').textContent = replacementTarget ? `Replacing ${state.albums[replacementTarget.index].title}. Choose another album below, then confirm.` : '';
+        $('confirmReplacement').hidden = !replacementTarget;
+        $('confirmReplacement').disabled = true;
+        $('applyAlbums').hidden = !!replacementTarget;
         updateDraftCount();
         const dialog=$('albumDialog');dialog.classList.remove('is-closing');dialog.showModal();
         updatePickerViewport();
@@ -1555,7 +1714,7 @@
         renderAlbumResults();
       });
       $('albumSearchForm').addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchDebounce);void searchArtists();});
-      $('albumDialog').addEventListener('close',()=>{cancelRackAnimation();clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
+      $('albumDialog').addEventListener('close',()=>{cancelRackAnimation();clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;replacementTarget=replacementCandidate=null;$('applyAlbums').hidden=false;$('confirmReplacement').hidden=true;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
 
       async function manualArtworkData(file) {
         const url = URL.createObjectURL(file);
@@ -1579,7 +1738,7 @@
       $('manualAlbumForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const file = $('manualArtwork').files?.[0];
-        if (!file || (draftAlbums.length >= 60 && cornerstoneTarget === null)) return;
+        if (!file || (draftAlbums.length >= 60 && cornerstoneTarget === null && !replacementTarget)) return;
         $('albumSearchStatus').textContent = 'Preparing your cover…';
         try {
           const album = {
@@ -1589,6 +1748,17 @@
             year: 'Your artwork',
             art: await manualArtworkData(file)
           };
+          if (replacementTarget) {
+            if (draftAlbums.some(choice => sameDraftAlbum(choice, album))) { $('albumSearchStatus').textContent = 'That album is already in your wall.'; return; }
+            replacementCandidate = album;
+            $('replacementNotice').textContent = `Replace ${state.albums[replacementTarget.index].title} with ${album.title} by ${album.artist}?`;
+            $('confirmReplacement').disabled = false;
+            albumSearchResults.unshift(album);
+            $('albumResults').classList.remove('artist-results');
+            renderAlbumResults();
+            event.target.reset();
+            return;
+          }
           const before = draftSignature(), cornerPosition = cornerstoneTarget === null ? draftCornerSlots.findIndex(choice => !choice) : cornerstoneTarget;
           if(cornerstoneTarget!==null)placeCornerstone(album);else addDraftAlbum(album);
           const added = before !== draftSignature() && draftAlbums.some(choice => sameDraftAlbum(choice, album));
@@ -1763,9 +1933,11 @@
       $('saveDesktop').addEventListener('click', () => saveWallpaper($('saveDesktop'), 3840, 2160, 'desktop'));
 
       $('applyAlbums').addEventListener('click', () => {
+        if (replacementTarget) return;
         if (draftCornerSlots.some(choice => !choice)) return;
         syncDraftOrder();
         state.albums = C.unique(draftAlbums);
+        state.placementOrder = null;
         state.customAlbums = true;
         state.mode = 'albums';
         void window.CornerstoneStudio?.save();
@@ -1774,6 +1946,7 @@
         renderGrid({ refreshBleed: true });
         window.CornerstoneStudio?.enterEditor({ reveal: true });
       });
+      $('confirmReplacement').addEventListener('click', () => void confirmAlbumReplacement());
 
       $('resetChart').addEventListener('click', () => {
         state.albums = C.unique([...chartAlbums].sort(() => Math.random() - .5));
@@ -1877,9 +2050,9 @@
         getRackLatestId:()=>rackLatestId,
         setRackLatestId:id=>{rackLatestId=typeof id==='string'?id:null;},
         setDraft:items=>{draftAlbums=C.unique(items);draftCornerSlots=C.cornerToStorage.map(index=>draftAlbums[index]||null);renderAlbumResults();updateDraftCount();},
-        targetCorner:position=>{cornerstoneTarget=position; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
+        targetCorner:position=>{if(replacementTarget)return;cornerstoneTarget=position; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
         finishSpotifyImport,
-        setAlbums:items=>{state.albums=C.unique(items);state.customAlbums=true;state.mode='albums';state.detail=5;if(state.albums.length>=4)renderGrid({wave:true,refreshBleed:true});},
+        setAlbums:items=>{state.albums=C.unique(items);state.placementOrder=null;state.customAlbums=true;state.mode='albums';state.detail=5;if(state.albums.length>=4)renderGrid({wave:true,refreshBleed:true});},
         saveWallpaper
       };
       state.colors = shuffledColors(state.count);

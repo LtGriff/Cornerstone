@@ -222,6 +222,8 @@ dialog::backdrop { background:#0e101468 !important; backdrop-filter:blur(8px); }
 #albumDialog .album-search input:focus-visible { outline:2px solid #d8bced;outline-offset:2px;box-shadow:none; }
 #albumDialog .album-search .action { min-height:46px;border-radius:13px; }
 #albumDialog .search-status { margin:0 2px 2px;min-height:0;font-size:11px;color:var(--picker-subtle); }
+#albumDialog .replacement-notice { margin:2px 0 8px;padding:8px 11px;border:1px solid #ffffff3d;border-radius:11px;background:#ffffff12;color:var(--picker-text);font-size:12px;line-height:1.35; }
+#albumDialog .replacement-notice[hidden],#albumDialog .picker-foot .action[hidden] { display:none; }
 #albumDialog .retry-note { margin:0 2px 5px;font-size:10px;color:#cbc6d1; }
 #albumDialog .release-filters { display:flex;flex-wrap:wrap;gap:5px;min-width:0;margin:0 2px 6px; }
 #albumDialog .release-filters[hidden] { display:none; }
