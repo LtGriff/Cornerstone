@@ -203,7 +203,7 @@
         if(r.ok)return r.json();
         const body=await r.json().catch(()=>({}));
         const reason=body?.error?.reason;
-        if(r.status===429&&reason!=='QUOTA_EXCEEDED'&&attempt===0){const seconds=Number(r.headers?.get?.('Retry-After'));if(Number.isFinite(seconds)&&seconds>=0&&seconds<=3){await wait(seconds*1000);continue;}}
+        if(r.status===429&&reason!=='QUOTA_EXCEEDED'&&attempt===0){const seconds=Number(r.headers?.get?.('Retry-After'));if(Number.isFinite(seconds)&&seconds>=0&&seconds<=15){await wait(seconds*1000);continue;}}
         const kind=r.status===429?(reason==='QUOTA_EXCEEDED'?'quota':'rate_limit'):r.status===401?'auth':r.status===403?'access':'service';
         const e=new Error(kind==='quota'?'Spotify’s beta request quota is temporarily exhausted. Try again later.':kind==='rate_limit'?'Spotify is rate-limiting requests. Try again later.':kind==='access'?'Spotify has not approved this account for this beta. Ask the owner to add your Spotify email.':kind==='auth'?'Spotify sign-in expired. Please reconnect.':'Spotify could not finish the import. Please reconnect.');
         e.status=r.status;e.kind=kind;throw e;

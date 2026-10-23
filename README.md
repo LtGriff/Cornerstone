@@ -24,6 +24,8 @@ Cornerstone uses Spotify's Authorization Code with PKCE flow, so no Client Secre
 
 Spotify Development Mode requires the app owner to have Premium and supports up to five allowlisted users. Add each tester in the Spotify Developer Dashboard. The redirect URI must exactly match the deployed URL, including the case of `/Cornerstone/` if that is the published path. Temporary authorization values are removed after import or cancellation; access tokens are not saved for automatic background updates. Reconnect to refresh the imported snapshot.
 
+For the approved-account test steps, provider caveats, and artwork provenance, see [BETA-VALIDATION.md](BETA-VALIDATION.md).
+
 ## Choosing albums
 
 From **Start creating**, choose **Select my albums**, search for the artist, select the correct artist record, and choose at least four albums. The first four choices become the cornerstones; smaller and 60-album walls are supported. A manual artwork upload is available when the catalog is incomplete. Projects are saved in this browser on this device, with an optional project-file backup. They do **not** sync to other browsers or devices.
