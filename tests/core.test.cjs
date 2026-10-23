@@ -30,6 +30,18 @@ test('a replacement keeps every other album in place across arrangements and exp
   assert.deepEqual(C.ordered(after,mode,'#d78c56',42,placementOrder).slice(0,4).map(a=>a.id),['0','1','2','3']);
  }
 });
+test('manual positions persist across screen shapes without moving the four cornerstones',()=>{
+ for(const size of [8,60]){
+  const items=Array.from({length:size},(_,i)=>album(i)),baseline=C.ordered(items,'color','#d78c56',42).slice(4).map(C.identity),manual={mode:'manual',ids:baseline.slice()};
+  [manual.ids[0],manual.ids[2]]=[manual.ids[2],manual.ids[0]];
+  for(const aspect of [16/9,1290/2796,21/9]){const shape=C.shape(aspect,size,size),arranged=C.arrange(items,shape.count,shape.columns,'manual','#d78c56',42,manual),positions=C.corners(shape.count,shape.columns);
+   positions.forEach((position,index)=>assert.equal(arranged[position].id,String(index)));
+   assert.deepEqual(arranged.filter((_,index)=>!positions.includes(index)).map(C.identity),manual.ids);
+  }
+  assert.deepEqual(C.ordered(items,'manual','#d78c56',42,{mode:'manual',ids:baseline}).slice(4).map(C.identity),baseline);
+  assert.deepEqual(C.ordered(items,'manual','#d78c56',42,{mode:'manual',ids:['invalid']}).map(a=>a.id),items.map(a=>a.id));
+ }
+});
 test('recommendations weight artists, redistribute exhausted catalogs and exclude duplicates',()=>{const existing=Array.from({length:45},(_,i)=>album(i));const artists=[{name:'A',weight:8},{name:'B',weight:4},{name:'C',weight:3}],pools=[Array.from({length:12},(_,i)=>album(100+i,'A')),Array.from({length:8},(_,i)=>album(200+i,'B')),Array.from({length:8},(_,i)=>album(300+i,'C'))];let r=C.recommend(artists,pools,existing,15);assert.equal(r.length,15);assert.deepEqual(artists.map(a=>r.filter(x=>x.suggestedBy===a.name).length),[8,4,3]);pools[0]=[pools[0][0],existing[0]];r=C.recommend(artists,pools,existing,15);assert.equal(r.length,15);assert.equal(r.filter(x=>x.suggestedBy==='A').length,1);assert.equal(C.unique(existing.concat(r)).length,60);});
 const track=i=>({id:'t'+i,artists:[{id:'a',name:'Artist'}],album:{id:'a'+i,name:'Album '+i,artists:[{id:'a',name:'Artist'}],images:[{url:'https://example.com/'+i+'.jpg',width:640}]}});
 test('Spotify follows next pages and stops at 60 distinct albums',async()=>{let calls=[];const fetch=async url=>{calls.push(url);return {ok:true,json:async()=>url.includes('offset=50')?{items:Array.from({length:20},(_,i)=>track(50+i)),next:null}:{items:Array.from({length:50},(_,i)=>track(i)),next:'https://api.spotify.com/v1/me/top/tracks?offset=50'}};};const r=await C.importSpotify('test','long_term',true,()=>{},fetch);assert.equal(r.albums.length,60);assert.equal(calls.length,2);assert.equal(r.stats.pages,2);});

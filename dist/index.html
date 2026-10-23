@@ -486,6 +486,12 @@
     .tile.is-editable:focus-visible { outline: 3px solid #fff; outline-offset: -3px; z-index: 5; }
     .tile.is-replacing .tile-inner { animation: replace-cover .48s ease-in-out both; }
     @keyframes replace-cover { 0%,100% { transform: rotateY(0) } 50% { transform: rotateY(90deg) } }
+    .tile.is-manual-selected::before { content:"";position:absolute;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 0 4px #eee0ff,inset 0 0 34px #c6a3f080; }
+    .grid.is-manual-choosing .tile.is-editable:not(.cornerstone):not(.is-manual-selected)::before,.grid.is-dragging .tile.is-editable:not(.cornerstone):not(.is-drag-source)::before { content:"";position:absolute;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 0 2px #ffffff85; }
+    .tile.is-drag-source { z-index:5;opacity:.72;filter:drop-shadow(0 12px 16px #0009); }
+    .tile.is-drop-target::before { content:""!important;position:absolute;inset:0;z-index:5;pointer-events:none;box-shadow:inset 0 0 0 4px #dfc9fa,0 0 18px #c8a5f0b0!important; }
+    .tile.is-swapping .tile-inner { animation:manual-swap .34s ease-in-out both; }
+    @keyframes manual-swap { 0%,100% { transform:scale(1);opacity:1 } 50% { transform:scale(.94);opacity:.55 } }
     .wall-edit-actions { position: fixed; left: 50%; bottom: clamp(16px,3vw,34px); z-index: 6; display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 7px; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; background: rgba(25,27,34,.82); color: #fff; box-shadow: 0 12px 36px #0008; backdrop-filter: blur(20px); transform: translateX(-50%); }
     .wall-edit-actions[hidden] { display: none; }
     .wall-edit-actions span { overflow: hidden; max-width: 180px; padding-left: 8px; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
@@ -702,7 +708,7 @@
           <span class="screen-label" id="screenLabel">12 tiles · four cornerstones · gentle motion</span>
         </div>
       </div>
-      <div class="wall-edit-actions" id="wallEditActions" hidden><span id="wallEditTitle"></span><button id="replaceTile" type="button">Replace album</button><button id="undoReplacement" type="button" hidden>Undo</button><button id="dismissTile" type="button" aria-label="Close album actions">×</button></div>
+      <div class="wall-edit-actions" id="wallEditActions" hidden><span id="wallEditTitle"></span><button id="replaceTile" type="button">Replace album</button><button id="undoReplacement" type="button" hidden>Undo replacement</button><button id="dismissTile" type="button" aria-label="Close album actions">×</button></div>
       <p class="tip">Every choice updates the preview immediately.</p>
     </section>
   </main>
@@ -842,7 +848,7 @@
         colors: [],
         albums: startingAlbums,
         customAlbums: savedAlbums.length >= 4,
-        arrangement: 'original', colorPreference: '#d78c56', randomSeed: 1, placementOrder: null
+        arrangement: 'original', colorPreference: '#d78c56', randomSeed: 1, placementOrder: null, manualOrder: null, manualBaseline: null
       };
 
       let flipTimer = null;
@@ -868,6 +874,10 @@
       let replacementCandidate = null;
       let lastReplacement = null;
       let replacementRevision = 0;
+      let dragSourceTile = null;
+      let dragWasHandled = false;
+      let manualSwapBusy = false;
+      let lastManualSwap = null;
 
       function shuffledColors(count) {
         const pool = [...palette].sort(() => Math.random() - .5);
@@ -939,17 +949,31 @@
           tile.classList.add('is-editable');
           tile.tabIndex = 0;
           tile.setAttribute('role', 'button');
-          tile.setAttribute('aria-label', `${pinned ? 'Edit cornerstone' : 'Replace album'}: ${album.title} by ${album.artist}`);
+          tile.setAttribute('aria-label', `${pinned ? 'Edit cornerstone' : state.arrangement === 'manual' ? 'Select to swap or replace album' : 'Replace album'}: ${album.title} by ${album.artist}`);
           tile.addEventListener('click', () => selectWallTile(tile));
           tile.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectWallTile(tile); } });
+          if (state.arrangement === 'manual' && !pinned) {
+            tile.draggable = !matchMedia('(pointer: coarse)').matches;
+            tile.addEventListener('dragstart', event => {
+              if (manualSwapBusy) { event.preventDefault(); return; }
+              clearWallSelection(); dragSourceTile = tile; tile.classList.add('is-drag-source'); $('grid').classList.add('is-dragging');
+              event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', tile.dataset.albumId);
+            });
+            tile.addEventListener('dragover', event => { if (!dragSourceTile || dragSourceTile === tile) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; tile.classList.add('is-drop-target'); });
+            tile.addEventListener('dragleave', () => tile.classList.remove('is-drop-target'));
+            tile.addEventListener('drop', event => { if (!dragSourceTile || dragSourceTile === tile) return; event.preventDefault(); const source = dragSourceTile; dragWasHandled = true; performManualSwap(source, tile); setTimeout(() => { dragWasHandled = false; }, 0); });
+            tile.addEventListener('dragend', () => { dragSourceTile = null; $('grid').classList.remove('is-dragging'); $('grid').querySelectorAll('.is-drag-source,.is-drop-target').forEach(item => item.classList.remove('is-drag-source','is-drop-target')); });
+          }
         }
         tile.innerHTML = '<div class="tile-inner"><div class="face front"></div><div class="face back"></div></div>';
         const frontImage = new Image();
         frontImage.crossOrigin = 'anonymous';
+        frontImage.draggable = false;
         frontImage.src = album.art;
         frontImage.alt = `${album.title} by ${album.artist}`;
         const backImage = new Image();
         backImage.crossOrigin = 'anonymous';
+        backImage.draggable = false;
         backImage.src = next.art;
         backImage.alt = `${next.title} by ${next.artist}`;
         [frontImage,backImage].forEach(image=>{image.decoding='async';image.addEventListener('error',()=>{image.hidden=true;const label=document.createElement('span');label.className='cover-fallback';label.textContent=image.alt+' · Cover unavailable';image.parentElement?.append(label);},{once:true});});
@@ -960,7 +984,7 @@
       }
 
       function arrangeWithCornerstones(items, count, columns) {
-        return C.arrange(items, count, columns, state.mode === 'albums' ? state.arrangement : 'original', state.colorPreference, state.randomSeed, state.mode === 'albums' ? state.placementOrder : null);
+        return C.arrange(items, count, columns, state.mode === 'albums' ? state.arrangement : 'original', state.colorPreference, state.randomSeed, state.mode === 'albums' ? state.arrangement === 'manual' ? state.manualOrder : state.placementOrder : null);
       }
 
       function renderGrid({ wave = false, refreshBleed = false } = {}) {
@@ -989,37 +1013,114 @@
         updateFrame({ refreshBleed });
         updateLabel();
         restartMotion();
+        window.CornerstoneStudio?.updateManualControls();
         window.CornerstoneStudio?.changed();
       }
 
       function clearWallSelection() {
-        selectedTile?.classList.remove('is-selected');
+        selectedTile?.classList.remove('is-selected','is-manual-selected');
         selectedTile = null;
+        $('grid').classList.remove('is-manual-choosing');
         $('wallEditActions').hidden = true;
       }
 
       function selectWallTile(tile) {
         if (document.body.classList.contains('onboarding') || wallpaperMode || document.fullscreenElement || state.mode !== 'albums' || !state.customAlbums) return;
+        if (dragWasHandled || manualSwapBusy) return;
+        if (state.arrangement === 'manual' && tile.dataset.pinned !== 'true' && selectedTile && selectedTile !== tile && selectedTile.dataset.pinned !== 'true') {
+          performManualSwap(selectedTile, tile);
+          return;
+        }
         if (selectedTile === tile) { clearWallSelection(); return; }
         clearWallSelection();
         selectedTile = tile;
         tile.classList.add('is-selected');
+        if (state.arrangement === 'manual' && tile.dataset.pinned !== 'true') { tile.classList.add('is-manual-selected'); $('grid').classList.add('is-manual-choosing'); }
         const album = state.albums.find(item => C.identity(item) === tile.dataset.albumId);
         if (!album) { clearWallSelection(); return; }
-        $('wallEditTitle').textContent = album.title;
+        $('wallEditTitle').textContent = state.arrangement === 'manual' && tile.dataset.pinned !== 'true' ? `Choose another tile · ${album.title}` : album.title;
         $('replaceTile').hidden = false;
         $('replaceTile').textContent = tile.dataset.pinned === 'true' ? 'Edit cornerstone' : 'Replace album';
         $('undoReplacement').hidden = !lastReplacement;
         $('wallEditActions').hidden = false;
-        $('replaceTile').focus({ preventScroll: true });
+        if (state.arrangement !== 'manual' || tile.dataset.pinned === 'true') $('replaceTile').focus({ preventScroll: true });
       }
 
       function currentPlacementIds() {
         const seen = new Set();
-        const visible = [...$('grid').children].filter(tile => tile.dataset.pinned !== 'true').map(tile => tile.dataset.albumId).filter(id => id && !seen.has(id) && seen.add(id));
-        const remaining = C.ordered(state.albums, state.arrangement, state.colorPreference, state.randomSeed, state.placementOrder).slice(4).map(C.identity).filter(id => !seen.has(id) && seen.add(id));
+        const current = new Set(state.albums.slice(4).map(C.identity));
+        const visible = [...$('grid').children].filter(tile => tile.dataset.pinned !== 'true').map(tile => {
+          const id=tile.dataset.albumId;
+          return current.has(id)?id:lastReplacement&&C.identity(lastReplacement.previous)===id?lastReplacement.currentId:null;
+        }).filter(id => id && !seen.has(id) && seen.add(id));
+        const activeOrder = state.arrangement === 'manual' ? state.manualOrder : state.placementOrder;
+        const remaining = C.ordered(state.albums, state.arrangement, state.colorPreference, state.randomSeed, activeOrder).slice(4).map(C.identity).filter(id => !seen.has(id) && seen.add(id));
         return visible.concat(remaining);
       }
+
+      function validManualOrder(order) {
+        const expected = state.albums.slice(4).map(C.identity);
+        return order?.mode === 'manual' && Array.isArray(order.ids) && order.ids.length === expected.length && new Set(order.ids).size === expected.length && expected.every(id => order.ids.includes(id));
+      }
+
+      function prepareManualOrder() {
+        if (!validManualOrder(state.manualOrder)) {
+          const ids = currentPlacementIds();
+          state.manualOrder = { mode: 'manual', ids };
+          state.manualBaseline = { mode: 'manual', ids: ids.slice() };
+          lastManualSwap = null;
+        }
+        if (!validManualOrder(state.manualBaseline)) state.manualBaseline = { mode: 'manual', ids: state.manualOrder.ids.slice() };
+      }
+
+      function exchangeTileArtwork(first, second) {
+        const swap = (a,b) => { const value=a.dataset[b]; a.dataset[b]=second.dataset[b]; second.dataset[b]=value; };
+        const innerA=first.querySelector('.tile-inner'),innerB=second.querySelector('.tile-inner');
+        const marker=document.createComment('swap');first.replaceChild(marker,innerA);second.replaceChild(innerA,innerB);first.replaceChild(innerB,marker);
+        for(const key of ['albumId','art'])swap(first,key);
+        const label=first.getAttribute('aria-label');first.setAttribute('aria-label',second.getAttribute('aria-label'));second.setAttribute('aria-label',label);
+      }
+
+      function animateManualSwap(first, second) {
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) { exchangeTileArtwork(first,second);manualSwapBusy=false;return; }
+        first.classList.add('is-swapping');second.classList.add('is-swapping');
+        setTimeout(() => { if (first.isConnected && second.isConnected) exchangeTileArtwork(first,second); }, 170);
+        setTimeout(() => { first.classList.remove('is-swapping');second.classList.remove('is-swapping');manualSwapBusy=false; }, 370);
+      }
+
+      function performManualSwap(first, second) {
+        if (state.arrangement !== 'manual' || manualSwapBusy || !first?.isConnected || !second?.isConnected || first === second || first.dataset.pinned === 'true' || second.dataset.pinned === 'true') return false;
+        prepareManualOrder();
+        const ids = state.manualOrder.ids.slice(),a=ids.indexOf(first.dataset.albumId),b=ids.indexOf(second.dataset.albumId);
+        if (a < 0 || b < 0 || a === b) return false;
+        const before=ids.slice();[ids[a],ids[b]]=[ids[b],ids[a]];
+        state.manualOrder = { mode:'manual', ids };
+        lastManualSwap = { before, after:ids.slice(), firstId:before[a], secondId:before[b] };
+        lastReplacement = null;
+        clearWallSelection();manualSwapBusy=true;animateManualSwap(first,second);
+        window.CornerstoneStudio?.updateManualControls();
+        void window.CornerstoneStudio?.save();
+        return true;
+      }
+
+      function undoManualSwap() {
+        const undo=lastManualSwap;
+        if (!undo || state.arrangement !== 'manual' || manualSwapBusy || state.manualOrder?.ids.join('|') !== undo.after.join('|')) return false;
+        const first=[...$('grid').children].find(tile => tile.dataset.albumId === undo.firstId),second=[...$('grid').children].find(tile => tile.dataset.albumId === undo.secondId);
+        state.manualOrder={mode:'manual',ids:undo.before.slice()};lastManualSwap=null;manualSwapBusy=true;
+        if(first&&second)animateManualSwap(first,second);else {manualSwapBusy=false;renderGrid();}
+        window.CornerstoneStudio?.updateManualControls();void window.CornerstoneStudio?.save();return true;
+      }
+
+      function resetManualOrder() {
+        if (state.arrangement !== 'manual' || !validManualOrder(state.manualBaseline)) return false;
+        state.manualOrder={mode:'manual',ids:state.manualBaseline.ids.slice()};lastManualSwap=null;lastReplacement=null;
+        renderGrid();void window.CornerstoneStudio?.save();return true;
+      }
+
+      function clearEditHistory() { lastReplacement = lastManualSwap = null;clearWallSelection();window.CornerstoneStudio?.updateManualControls(); }
+
+      document.addEventListener('keydown',event=>{if(event.key==='Escape'&&selectedTile)clearWallSelection();});
 
       $('dismissTile').addEventListener('click', clearWallSelection);
       $('replaceTile').addEventListener('click', () => {
@@ -1050,7 +1151,7 @@
           tile.querySelector('.front').append(image);
           tile.dataset.art = album.art;
           tile.dataset.albumId = C.identity(album);
-          tile.setAttribute('aria-label', `Replace album: ${album.title} by ${album.artist}`);
+          tile.setAttribute('aria-label', `${state.arrangement === 'manual' ? 'Select to swap or replace album' : 'Replace album'}: ${album.title} by ${album.artist}`);
         };
         tile.classList.remove('is-flipping');
         if (matchMedia('(prefers-reduced-motion: reduce)').matches) { update(); return; }
@@ -1068,12 +1169,19 @@
         if (C.unique(next).length !== next.length) { $('albumSearchStatus').textContent = 'That album is already in your wall. Choose a different one.'; return; }
         const oldAlbum = state.albums[target.index];
         const previousOrder = state.placementOrder;
+        const previousManual = state.manualOrder;
+        const previousBaseline = state.manualBaseline;
         const tile = [...$('grid').children].find(item => item.dataset.albumId === target.oldId);
         const tileIndex = tile ? Number(tile.dataset.index) : target.tileIndex;
         const ids = (tile ? currentPlacementIds() : target.order).map(id => id === target.oldId ? C.identity(album) : id);
         state.albums = next;
-        state.placementOrder = { mode: state.arrangement, ids };
-        lastReplacement = { index: target.index, previous: oldAlbum, currentId: C.identity(album), order: previousOrder, tileIndex };
+        if (state.arrangement === 'manual') state.manualOrder = { mode:'manual', ids };
+        else state.placementOrder = { mode: state.arrangement, ids };
+        if (previousManual && state.arrangement !== 'manual') state.manualOrder = { mode:'manual', ids:previousManual.ids.map(id=>id===target.oldId?C.identity(album):id) };
+        if (previousBaseline) state.manualBaseline = { mode:'manual', ids:previousBaseline.ids.map(id=>id===target.oldId?C.identity(album):id) };
+        lastReplacement = { index: target.index, previous: oldAlbum, currentId: C.identity(album), order: previousOrder, manual:previousManual, baseline:previousBaseline, tileIndex };
+        lastManualSwap = null;
+        window.CornerstoneStudio?.updateManualControls();
         replacementTarget = replacementCandidate = null;
         clearWallSelection();
         closePicker();
@@ -1093,7 +1201,7 @@
         if (!undo || C.identity(state.albums[undo.index]) !== undo.currentId) return;
         const next = state.albums.slice(); next[undo.index] = undo.previous;
         if (C.unique(next).length !== next.length) return;
-        state.albums = next; state.placementOrder = undo.order; lastReplacement = null;
+        state.albums = next; state.placementOrder = undo.order; state.manualOrder = undo.manual; state.manualBaseline = undo.baseline; lastReplacement = null;
         const tile = [...$('grid').children].find(item => item.dataset.albumId === undo.currentId);
         if (tile) paintReplacedTile(tile, undo.previous);
         else renderGrid();
@@ -1209,7 +1317,7 @@
 
       function flipOne() {
         const allTiles = [...document.querySelectorAll('.tile')];
-        const tiles = allTiles.filter((candidate) => candidate.dataset.pinned !== 'true' && !candidate.classList.contains('is-flipping') && !candidate.classList.contains('is-replacing') && candidate !== selectedTile);
+        const tiles = allTiles.filter((candidate) => candidate.dataset.pinned !== 'true' && !candidate.classList.contains('is-flipping') && !candidate.classList.contains('is-replacing') && !candidate.classList.contains('is-swapping') && candidate !== selectedTile);
         if (!tiles.length || !state.motion || document.hidden || document.body.classList.contains('onboarding')) return;
         const tile = tiles[Math.floor(Math.random() * tiles.length)];
         const back = tile.querySelector('.back');
@@ -1339,6 +1447,7 @@
           state.arrangement = 'random';
           state.randomSeed = Date.now();
           state.placementOrder = null;
+          clearEditHistory();
           if ($('arrangement')) $('arrangement').value='random';
         } else {
           const anchors = state.colors.slice(0, 4);
@@ -1938,6 +2047,8 @@
         syncDraftOrder();
         state.albums = C.unique(draftAlbums);
         state.placementOrder = null;
+        state.manualOrder = state.manualBaseline = null;
+        lastManualSwap = lastReplacement = null;
         state.customAlbums = true;
         state.mode = 'albums';
         void window.CornerstoneStudio?.save();
@@ -1950,6 +2061,7 @@
 
       $('resetChart').addEventListener('click', () => {
         state.albums = C.unique([...chartAlbums].sort(() => Math.random() - .5));
+        state.manualOrder = state.manualBaseline = state.placementOrder = null;
         state.customAlbums = false;
         state.mode = 'albums';
         try {
@@ -2045,14 +2157,16 @@
       }
 
       window.CornerstoneApp = {
-        state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount,
+        state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount, prepareManualOrder, undoManualSwap, resetManualOrder, clearEditHistory,
+        canUndoManual:()=>!!lastManualSwap&&state.arrangement==='manual',
+        manualIsCustomized:()=>validManualOrder(state.manualOrder)&&validManualOrder(state.manualBaseline)&&state.manualOrder.ids.join('|')!==state.manualBaseline.ids.join('|'),
         getDraft:()=>draftAlbums,
         getRackLatestId:()=>rackLatestId,
         setRackLatestId:id=>{rackLatestId=typeof id==='string'?id:null;},
         setDraft:items=>{draftAlbums=C.unique(items);draftCornerSlots=C.cornerToStorage.map(index=>draftAlbums[index]||null);renderAlbumResults();updateDraftCount();},
         targetCorner:position=>{if(replacementTarget)return;cornerstoneTarget=position; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
         finishSpotifyImport,
-        setAlbums:items=>{state.albums=C.unique(items);state.placementOrder=null;state.customAlbums=true;state.mode='albums';state.detail=5;if(state.albums.length>=4)renderGrid({wave:true,refreshBleed:true});},
+        setAlbums:items=>{state.albums=C.unique(items);state.placementOrder=null;state.manualOrder=state.manualBaseline=null;lastManualSwap=lastReplacement=null;state.customAlbums=true;state.mode='albums';state.detail=5;if(state.albums.length>=4)renderGrid({wave:true,refreshBleed:true});},
         saveWallpaper
       };
       state.colors = shuffledColors(state.count);

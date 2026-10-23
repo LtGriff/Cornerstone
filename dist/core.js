@@ -38,7 +38,7 @@
       const placed=placementOrder.ids.map(id=>byIdentity.get(id));
       if(placed.every(Boolean)&&new Set(placementOrder.ids).size===rest.length)return fixed.concat(placed);
     }
-    if (mode==='original') return items.slice();
+    if (mode==='original'||mode==='manual') return items.slice();
     if (mode==='random') {
       let n=seed|0;
       for(let i=rest.length-1;i>0;i--){ n=(Math.imul(1664525,n)+1013904223)|0; const j=(n>>>0)%(i+1); [rest[i],rest[j]]=[rest[j],rest[i]]; }
