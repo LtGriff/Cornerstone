@@ -42,6 +42,16 @@ test('manual positions persist across screen shapes without moving the four corn
   assert.deepEqual(C.ordered(items,'manual','#d78c56',42,{mode:'manual',ids:['invalid']}).map(a=>a.id),items.map(a=>a.id));
  }
 });
+test('cornerstone color overrides follow physical corners without changing albums',()=>{
+ const items=Array.from({length:8},(_,i)=>({...album(i),color:[i*20,80,120]}));
+ const automatic=C.cornerPalette(items,'automatic',['#ffffff','#ffffff','#ffffff','#ffffff']);
+ assert.deepEqual(automatic,[[0,80,120],[20,80,120],[60,80,120],[40,80,120]]);
+ const custom=C.cornerPalette(items,'custom',['#ff0000',null,'#0000ff','#00ff00']);
+ assert.deepEqual(custom,[[255,0,0],[20,80,120],[0,0,255],[0,255,0]]);
+ assert.deepEqual(C.wallpaperCornerPalette(items,'custom',['#ff0000',null,'#0000ff','#00ff00']),[[255,0,0],C.vividColor([20,80,120]),[0,0,255],[0,255,0]]);
+ assert.deepEqual(items.slice(0,4).map(a=>a.id),['0','1','2','3']);
+ assert.equal(C.validColorHex('#12abEF'),true);assert.equal(C.validColorHex('red'),false);
+});
 test('recommendations weight artists, redistribute exhausted catalogs and exclude duplicates',()=>{const existing=Array.from({length:45},(_,i)=>album(i));const artists=[{name:'A',weight:8},{name:'B',weight:4},{name:'C',weight:3}],pools=[Array.from({length:12},(_,i)=>album(100+i,'A')),Array.from({length:8},(_,i)=>album(200+i,'B')),Array.from({length:8},(_,i)=>album(300+i,'C'))];let r=C.recommend(artists,pools,existing,15);assert.equal(r.length,15);assert.deepEqual(artists.map(a=>r.filter(x=>x.suggestedBy===a.name).length),[8,4,3]);pools[0]=[pools[0][0],existing[0]];r=C.recommend(artists,pools,existing,15);assert.equal(r.length,15);assert.equal(r.filter(x=>x.suggestedBy==='A').length,1);assert.equal(C.unique(existing.concat(r)).length,60);});
 const track=i=>({id:'t'+i,artists:[{id:'a',name:'Artist'}],album:{id:'a'+i,name:'Album '+i,artists:[{id:'a',name:'Artist'}],images:[{url:'https://example.com/'+i+'.jpg',width:640}]}});
 test('Spotify follows next pages and stops at 60 distinct albums',async()=>{let calls=[];const fetch=async url=>{calls.push(url);return {ok:true,json:async()=>url.includes('offset=50')?{items:Array.from({length:20},(_,i)=>track(50+i)),next:null}:{items:Array.from({length:50},(_,i)=>track(i)),next:'https://api.spotify.com/v1/me/top/tracks?offset=50'}};};const r=await C.importSpotify('test','long_term',true,()=>{},fetch);assert.equal(r.albums.length,60);assert.equal(calls.length,2);assert.equal(r.stats.pages,2);});

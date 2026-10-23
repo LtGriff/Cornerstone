@@ -25,6 +25,13 @@
   // Saved collections are clockwise (TL, TR, BR, BL); the picker and color frame read TL, TR, BL, BR.
   const cornerToStorage = Object.freeze([0, 1, 3, 2]);
   const vividColor = rgb => { const middle=(rgb[0]+rgb[1]+rgb[2])/3; return rgb.map(channel=>Math.max(0,Math.min(255,Math.round(middle+(channel-middle)*1.4+12)))); };
+  const validColorHex = value => typeof value==='string' && /^#[0-9a-f]{6}$/i.test(value);
+  const colorFromHex = value => validColorHex(value) ? [1,3,5].map(index=>parseInt(value.slice(index,index+2),16)) : null;
+  const cornerPalette = (albums,mode='automatic',overrides=[]) => cornerToStorage.map((storageIndex,physicalIndex)=>{
+    const album=albums[storageIndex];
+    return album && mode==='custom' ? colorFromHex(overrides[physicalIndex]) || album.color || null : album?.color || null;
+  });
+  const wallpaperCornerPalette = (albums,mode='automatic',overrides=[]) => cornerPalette(albums,mode,overrides).map((color,index)=>color ? mode==='custom'&&validColorHex(overrides[index])?color:vividColor(color) : null);
   const corners = (count, columns) => [0, columns - 1, count - 1, count - columns]; // existing clockwise order
   function colorValues(rgb = [125, 128, 143]) {
     const [r,g,b] = rgb.map(v => v/255), max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
@@ -223,6 +230,6 @@
     const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
     return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,ordered,arrange,recommend,get,put,artists,albums,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
+  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

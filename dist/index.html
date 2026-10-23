@@ -848,7 +848,8 @@
         colors: [],
         albums: startingAlbums,
         customAlbums: savedAlbums.length >= 4,
-        arrangement: 'original', colorPreference: '#d78c56', randomSeed: 1, placementOrder: null, manualOrder: null, manualBaseline: null
+        arrangement: 'original', colorPreference: '#d78c56', randomSeed: 1, placementOrder: null, manualOrder: null, manualBaseline: null,
+        cornerColorMode: 'automatic', cornerColorOverrides: [null,null,null,null]
       };
 
       let flipTimer = null;
@@ -1014,6 +1015,7 @@
         updateLabel();
         restartMotion();
         window.CornerstoneStudio?.updateManualControls();
+        window.CornerstoneStudio?.updateColorControls();
         window.CornerstoneStudio?.changed();
       }
 
@@ -1269,11 +1271,22 @@
       }
 
       let frameColorRevision = 0;
-      function applyFrameColors(colors) {
+      function reconcileCornerColors(nextAlbums) {
+        const overrides=Array.isArray(state.cornerColorOverrides)?state.cornerColorOverrides.slice(0,4):[null,null,null,null];
+        C.cornerToStorage.forEach((storageIndex,physicalIndex)=>{
+          const previous=state.albums[storageIndex],next=nextAlbums[storageIndex];
+          if((previous?C.identity(previous):null)!==(next?C.identity(next):null)||previous?.art!==next?.art)overrides[physicalIndex]=null;
+        });
+        state.cornerColorOverrides=overrides;
+      }
+      function applyFrameColors(colors,{direct=false}={}) {
         ['a', 'b', 'c', 'd'].forEach((key, index) => {
           const color = colors[index];
-          $('screen').style.setProperty(`--bleed-${key}`, Array.isArray(color) ? `rgb(${C.vividColor(color).join(',')})` : color || '#838996');
+          $('screen').style.setProperty(`--bleed-${key}`, Array.isArray(color) ? `rgb(${(direct?color:C.vividColor(color)).join(',')})` : color || '#838996');
         });
+      }
+      function refreshCornerFrameColors() {
+        if(state.mode==='albums')applyFrameColors(C.wallpaperCornerPalette(state.albums,state.cornerColorMode,state.cornerColorOverrides),{direct:true});
       }
       function updateFrame({ refreshBleed = false } = {}) {
         const screen = $('screen');
@@ -1285,9 +1298,9 @@
         screen.classList.toggle('album-bleed', state.mode === 'albums' && state.albums.length > 0);
         if (state.mode === 'albums' && state.albums.length) {
           const cornerAlbums = C.cornerToStorage.map(index => state.albums[index]);
-          applyFrameColors(cornerAlbums.map(album => album?.color));
-          void Promise.all(cornerAlbums.map(album => album ? C.analyze(album) : null)).then(colors => {
-            if (colorRevision === frameColorRevision && state.mode === 'albums') applyFrameColors(colors);
+          refreshCornerFrameColors();
+          void Promise.all(cornerAlbums.map(album => album ? C.analyze(album) : null)).then(() => {
+            if (colorRevision === frameColorRevision && state.mode === 'albums') refreshCornerFrameColors();
           });
           if (refreshBleed || screen.dataset.ambientMode !== 'albums') void refreshAlbumBleed();
           screen.dataset.ambientMode = 'albums';
@@ -2045,7 +2058,9 @@
         if (replacementTarget) return;
         if (draftCornerSlots.some(choice => !choice)) return;
         syncDraftOrder();
-        state.albums = C.unique(draftAlbums);
+        const nextAlbums=C.unique(draftAlbums);
+        reconcileCornerColors(nextAlbums);
+        state.albums = nextAlbums;
         state.placementOrder = null;
         state.manualOrder = state.manualBaseline = null;
         lastManualSwap = lastReplacement = null;
@@ -2060,7 +2075,9 @@
       $('confirmReplacement').addEventListener('click', () => void confirmAlbumReplacement());
 
       $('resetChart').addEventListener('click', () => {
-        state.albums = C.unique([...chartAlbums].sort(() => Math.random() - .5));
+        const nextAlbums=C.unique([...chartAlbums].sort(() => Math.random() - .5));
+        reconcileCornerColors(nextAlbums);
+        state.albums = nextAlbums;
         state.manualOrder = state.manualBaseline = state.placementOrder = null;
         state.customAlbums = false;
         state.mode = 'albums';
@@ -2157,7 +2174,7 @@
       }
 
       window.CornerstoneApp = {
-        state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount, prepareManualOrder, undoManualSwap, resetManualOrder, clearEditHistory,
+        state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount, prepareManualOrder, undoManualSwap, resetManualOrder, clearEditHistory, refreshCornerFrameColors,
         canUndoManual:()=>!!lastManualSwap&&state.arrangement==='manual',
         manualIsCustomized:()=>validManualOrder(state.manualOrder)&&validManualOrder(state.manualBaseline)&&state.manualOrder.ids.join('|')!==state.manualBaseline.ids.join('|'),
         getDraft:()=>draftAlbums,
@@ -2166,7 +2183,7 @@
         setDraft:items=>{draftAlbums=C.unique(items);draftCornerSlots=C.cornerToStorage.map(index=>draftAlbums[index]||null);renderAlbumResults();updateDraftCount();},
         targetCorner:position=>{if(replacementTarget)return;cornerstoneTarget=position; $('albumSearchStatus').textContent='Choose a cover to replace this cornerstone.'; $('albumSearch').focus();},
         finishSpotifyImport,
-        setAlbums:items=>{state.albums=C.unique(items);state.placementOrder=null;state.manualOrder=state.manualBaseline=null;lastManualSwap=lastReplacement=null;state.customAlbums=true;state.mode='albums';state.detail=5;if(state.albums.length>=4)renderGrid({wave:true,refreshBleed:true});},
+        setAlbums:items=>{const nextAlbums=C.unique(items);reconcileCornerColors(nextAlbums);state.albums=nextAlbums;state.placementOrder=null;state.manualOrder=state.manualBaseline=null;lastManualSwap=lastReplacement=null;state.customAlbums=true;state.mode='albums';state.detail=5;if(state.albums.length>=4)renderGrid({wave:true,refreshBleed:true});},
         saveWallpaper
       };
       state.colors = shuffledColors(state.count);

@@ -50,6 +50,7 @@
 }
 body.wallpaper-mode .outer-website-frame,
 .outer-website-frame[hidden] { display:none !important; }
+html:has(.screen:fullscreen) .outer-website-frame,html:has(.screen:fullscreen) .appearance-dock { display:none !important; }
 .appearance-dock { position:fixed; top:21px; right:24px; z-index:2147483645; display:flex; gap:7px; align-items:center; color:#f4f1f6; }
 .appearance-icon { width:38px; height:38px; display:grid; place-items:center; padding:0; border:1px solid #ffffff3b; border-radius:50%; color:inherit; background:#242832a8; box-shadow:inset 0 1px #ffffff33,0 6px 22px #0003; backdrop-filter:blur(20px) saturate(1.2); cursor:pointer; font-size:17px; line-height:1; }
 .appearance-icon:hover,.appearance-icon[aria-expanded=true] { background:#3a3d49d9; }
@@ -364,6 +365,31 @@ html[data-theme=day] #albumDialog .selected-collection:hover { color:#283747; }
 .manual-controls .quiet-button:disabled { opacity:.38;cursor:default; }
 html[data-theme=day] .manual-controls { border-color:#74808b60;background:#ffffff90; }
 html[data-theme=day] .manual-controls p { color:#46515c; }
+.corner-color-controls { margin-top:14px;padding:12px;border:1px solid #ffffff25;border-radius:16px;background:#ffffff09; }
+.corner-color-heading { display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px; }
+.corner-color-heading strong { font-size:13px; }
+.corner-color-heading small,.corner-color-controls p { color:#b8b4c3;font-size:10px;line-height:1.5; }
+.corner-color-modes { display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:10px;background:#08090c8a; }
+.corner-color-modes button { min-height:36px;border:0;border-radius:8px;background:transparent;color:#d6d1de;font:inherit;font-size:12px;cursor:pointer; }
+.corner-color-modes button[aria-pressed=true] { background:#ebe7f4;color:#25222e; }
+.corner-color-list { display:grid;gap:7px;margin:11px 0; }
+.corner-color-row { display:grid;grid-template-columns:34px minmax(0,1fr) 38px auto;gap:7px;align-items:center;padding:5px;border:1px solid #ffffff19;border-radius:10px;background:#ffffff0b; }
+.corner-color-row img { width:34px;height:34px;object-fit:cover;border-radius:6px;background:#35353d; }
+.corner-color-name { min-width:0; }
+.corner-color-name strong,.corner-color-name small { display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.corner-color-name strong { font-size:11px; }
+.corner-color-name small { margin-top:2px;color:#b8b4c3;font-size:10px; }
+.corner-color-row input[type=color] { width:38px;height:36px;padding:2px;border:1px solid #ffffff55;border-radius:9px;background:transparent;cursor:pointer; }
+.corner-color-row .quiet-button { min-height:34px;padding:5px;font-size:10px; }
+.corner-color-controls .quiet-button:disabled { opacity:.4;cursor:default; }
+.corner-color-controls p { margin:8px 0 0; }
+html[data-theme=day] .corner-color-controls { border-color:#74808b60;background:#ffffff90; }
+html[data-theme=day] .corner-color-heading small,html[data-theme=day] .corner-color-controls p,html[data-theme=day] .corner-color-name small { color:#46515c; }
+html[data-theme=day] .corner-color-modes { background:#dee3e9; }
+html[data-theme=day] .corner-color-modes button { color:#283747; }
+html[data-theme=day] .corner-color-modes button[aria-pressed=true] { background:white; }
+html[data-theme=day] .corner-color-row { border-color:#74808b40;background:#ffffff7a; }
+@media(max-width:360px){.corner-color-row{grid-template-columns:30px minmax(0,1fr) 34px auto;gap:4px}.corner-color-row img{width:30px;height:30px}.corner-color-row input[type=color]{width:34px}}
 .project-actions { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
 .toast { position:fixed; left:50%; bottom:25px; transform:translateX(-50%); z-index:100; padding:12px 20px; border:1px solid #ffffff26; border-radius:20px; color:white; background:#252731ed; box-shadow:0 10px 30px #0005; max-width:90vw; font-size:13px; text-align:center; }
 .cover-fallback { display:grid;place-items:center;width:100%;height:100%;padding:12%;text-align:center;font-size:clamp(8px,1vw,14px);background:#282b37;color:#d7d3df; }
