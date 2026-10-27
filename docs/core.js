@@ -1,8 +1,17 @@
 /* Shared collection, layout, catalog and persistence services. No private credentials. */
 (function (root) {
   'use strict';
-  const normal = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*(?:deluxe|remaster|expanded|anniversary|edition|explicit|clean)[^)]*\)|\[[^\]]*(?:deluxe|remaster|edition)[^\]]*\]/g, '').replace(/[^a-z0-9]/g, '');
+  const normal = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*(?:deluxe|remaster|expanded|anniversary|edition|explicit|clean)[^)]*\)|\[[^\]]*(?:deluxe|remaster|edition)[^\]]*\]/g, '').replace(/\s*[-–—:]\s*(?:deluxe|expanded|remaster(?:ed)?|anniversary|special|bonus)\b.*$/i,'').replace(/[^a-z0-9]/g, '');
   const identity = a => `${normal(a.artist)}:${normal(a.title)}`;
+  const friendBeta = () => root.CornerstoneConfig?.release === 'friend-beta';
+  // Original abstract visuals contain no provider artwork. Metadata remains artist/album-specific.
+  function betaAlbum(album) {
+    const name=identity(album), hash=[...name].reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619)>>>0,2166136261);
+    const hue=hash%360, color=[0,1,2].map((_,i)=>Math.round((Math.sin((hue+i*75)*Math.PI/180)+1)*63+55));
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="hsl(${hue} 48% 48%)"/><stop offset="1" stop-color="hsl(${(hue+95)%360} 50% 20%)"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/><circle cx="${130+hash%260}" cy="${160+(hash>>>8)%240}" r="195" fill="none" stroke="#ffffff6b" stroke-width="56"/><path d="M-60 ${230+(hash>>>16)%170} Q 260 15 670 400" fill="none" stroke="#ffffff42" stroke-width="75"/><circle cx="470" cy="470" r="60" fill="#ffffff55"/></svg>`;
+    const art='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    return {...album,art,thumb:art,color,source:'beta-original',metadataSource:album.metadataSource||album.source||'manual'};
+  }
   function unique(items, limit = 60) {
     const ids = new Set(), names = new Set(), arts = new Set();
     return items.filter(a => {
@@ -25,15 +34,27 @@
   // Saved collections are clockwise (TL, TR, BR, BL); the picker and color frame read TL, TR, BL, BR.
   const cornerToStorage = Object.freeze([0, 1, 3, 2]);
   const vividColor = rgb => { const middle=(rgb[0]+rgb[1]+rgb[2])/3; return rgb.map(channel=>Math.max(0,Math.min(255,Math.round(middle+(channel-middle)*1.4+12)))); };
+  const validColorHex = value => typeof value==='string' && /^#[0-9a-f]{6}$/i.test(value);
+  const colorFromHex = value => validColorHex(value) ? [1,3,5].map(index=>parseInt(value.slice(index,index+2),16)) : null;
+  const cornerPalette = (albums,mode='automatic',overrides=[]) => cornerToStorage.map((storageIndex,physicalIndex)=>{
+    const album=albums[storageIndex];
+    return album && mode==='custom' ? colorFromHex(overrides[physicalIndex]) || album.color || null : album?.color || null;
+  });
+  const wallpaperCornerPalette = (albums,mode='automatic',overrides=[]) => cornerPalette(albums,mode,overrides).map((color,index)=>color ? mode==='custom'&&validColorHex(overrides[index])?color:vividColor(color) : null);
   const corners = (count, columns) => [0, columns - 1, count - 1, count - columns]; // existing clockwise order
   function colorValues(rgb = [125, 128, 143]) {
     const [r,g,b] = rgb.map(v => v/255), max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
     let h = d === 0 ? 0 : max===r ? ((g-b)/d)%6 : max===g ? (b-r)/d+2 : (r-g)/d+4;
     return { h:(h*60+360)%360, s:max ? d/max:0, l:(max+min)/2 };
   }
-  function ordered(items, mode='original', color='#df8b52', seed=1) {
+  function ordered(items, mode='original', color='#df8b52', seed=1, placementOrder=null) {
     const fixed=items.slice(0,4), rest=items.slice(4);
-    if (mode==='original') return items.slice();
+    if(placementOrder?.mode===mode&&Array.isArray(placementOrder.ids)&&placementOrder.ids.length===rest.length){
+      const byIdentity=new Map(rest.map(album=>[identity(album),album]));
+      const placed=placementOrder.ids.map(id=>byIdentity.get(id));
+      if(placed.every(Boolean)&&new Set(placementOrder.ids).size===rest.length)return fixed.concat(placed);
+    }
+    if (mode==='original'||mode==='manual') return items.slice();
     if (mode==='random') {
       let n=seed|0;
       for(let i=rest.length-1;i>0;i--){ n=(Math.imul(1664525,n)+1013904223)|0; const j=(n>>>0)%(i+1); [rest[i],rest[j]]=[rest[j],rest[i]]; }
@@ -46,8 +67,8 @@
     }
     return fixed.concat(rest);
   }
-  function arrange(items,count,columns,mode,color,seed) {
-    const source=ordered(items,mode,color,seed), out=Array(count), pinned=corners(count,columns);
+  function arrange(items,count,columns,mode,color,seed,placementOrder) {
+    const source=ordered(items,mode,color,seed,placementOrder), out=Array(count), pinned=corners(count,columns);
     source.slice(0,4).forEach((a,i)=>out[pinned[i]]=a);
     let cursor=4;
     for(let i=0;i<count;i++)if(!out[i])out[i]=source[cursor++];
@@ -97,23 +118,83 @@
   async function artists(term,signal){
     const q='artist:"'+term.replace(/["\\]/g,'')+'"';
     const data=await catalog('https://musicbrainz.org/ws/2/artist/?query='+encodeURIComponent(q)+'&fmt=json&limit=8',signal);
-    return (data.artists||[]).map(a=>({id:a.id,name:a.name,country:a.country,type:a.type,disambiguation:a.disambiguation}));
+    const wanted=normal(term);
+    return (data.artists||[]).map(a=>({id:a.id,name:a.name,country:a.country,type:a.type,disambiguation:a.disambiguation,score:Number(a.score)||0}))
+      .sort((a,b)=>Number(normal(b.name)===wanted)-Number(normal(a.name)===wanted)||Number(normal(b.name).startsWith(wanted))-Number(normal(a.name).startsWith(wanted))||b.score-a.score);
   }
-  async function albums(artist,signal,onPage=()=>{}){
-    const result=[];let offset=0;
-    do {
-      const data=await catalog(`https://musicbrainz.org/ws/2/release-group?artist=${encodeURIComponent(artist.id)}&type=album%7Cep&release-group-status=website-default&fmt=json&limit=25&offset=${offset}`,signal);
+  function releaseCategory(group){
+    const secondary=group['secondary-types']||[];
+    if(secondary.length)return 'more';
+    if(group['primary-type']==='Album')return 'albums';
+    if(group['primary-type']==='EP')return 'eps';
+    return 'more';
+  }
+  const releaseOrder={albums:0,eps:1,more:2};
+  function albumOrder(a,b){return releaseOrder[a.category]-releaseOrder[b.category]||String(b.year||'').localeCompare(String(a.year||''))||a.title.localeCompare(b.title);}
+  async function albums(artist,signal,onPage=()=>{},options={}){
+    const result=options.previous?.slice()||[];let offset=options.offset||0;
+    for(let page=0;page<3;page++){
+      const data=await catalog(`https://musicbrainz.org/ws/2/release-group?artist=${encodeURIComponent(artist.id)}&release-group-status=website-default&fmt=json&limit=100&offset=${offset}`,signal);
       const groups=data['release-groups']||[];
-      result.push(...groups.filter(g=>['Album','EP'].includes(g['primary-type'])&&!(g['secondary-types']||[]).some(t=>['Compilation','Live','Remix','DJ-mix','Interview','Audiobook'].includes(t))).map(g=>({id:g.id,title:g.title,artist:artist.name,artistId:artist.id,year:g['first-release-date']?.slice(0,4),art:`https://coverartarchive.org/release-group/${g.id}/front-500`,thumb:`https://coverartarchive.org/release-group/${g.id}/front-250`,url:`https://musicbrainz.org/release-group/${g.id}`,source:'musicbrainz'})));
-      onPage(unique(result,100).sort((a,b)=>String(b.year||'').localeCompare(String(a.year||''))));
-      offset+=25;if(offset>=(data['release-group-count']||groups.length)||offset>=100)break;
-    }while(true);
-    return unique(result,100).sort((a,b)=>String(b.year||'').localeCompare(String(a.year||'')));
+      result.push(...groups.map(g=>{const a={id:g.id,title:g.title,artist:artist.name,artistId:artist.id,year:g['first-release-date']?.slice(0,4),category:releaseCategory(g),releaseType:[g['primary-type'],...(g['secondary-types']||[])].filter(Boolean).join(' · '),art:`https://coverartarchive.org/release-group/${g.id}/front-500`,thumb:`https://coverartarchive.org/release-group/${g.id}/front-250`,url:`https://musicbrainz.org/release-group/${g.id}`,source:'musicbrainz'};return friendBeta()?betaAlbum(a):a;}));
+      offset+=groups.length;
+      const visible=unique(result,10000).sort(albumOrder);
+      visible.nextOffset=groups.length&&offset<(data['release-group-count']||groups.length)?offset:null;
+      onPage(visible);
+      if(visible.nextOffset===null)return visible;
+    }
+    const visible=unique(result,10000).sort(albumOrder);
+    visible.nextOffset=offset;
+    return visible;
   }
   const imageCache=new Map();
   function loadImage(url){
-    if(!imageCache.has(url))imageCache.set(url,new Promise((resolve,reject)=>{const im=new Image();const timer=setTimeout(()=>{im.src='';reject(new Error('Artwork timed out'));},16000);im.crossOrigin='anonymous';im.onload=()=>{clearTimeout(timer);resolve(im);};im.onerror=()=>{clearTimeout(timer);reject(new Error('Artwork unavailable'));};im.src=url;}).catch(e=>{imageCache.delete(url);throw e;}));
-    return imageCache.get(url);
+    const cached=imageCache.get(url);
+    if(cached&&(!cached.failedAt||Date.now()-cached.failedAt<21600000))return cached.promise;
+    const entry={promise:new Promise((resolve,reject)=>{const im=new Image();const timer=setTimeout(()=>{im.src='';reject(new Error('Artwork timed out'));},12000);im.crossOrigin='anonymous';im.onload=()=>{clearTimeout(timer);resolve(im);};im.onerror=()=>{clearTimeout(timer);reject(new Error('Artwork unavailable'));};im.src=url;})};
+    entry.promise=entry.promise.catch(e=>{entry.failedAt=Date.now();throw e;});imageCache.set(url,entry);return entry.promise;
+  }
+  const artworkJobs=new Map();
+  function officialReleaseCandidates(releases,album){
+    const plain=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    return releases.filter(r=>r.status==='Official'&&normal(r.title)===normal(album.title)&&r['cover-art-archive']?.front!==false)
+      .sort((a,b)=>Number(plain(a.title)!==plain(album.title))-Number(plain(b.title)!==plain(album.title))||Number(a['cover-art-archive']?.front!==true)-Number(b['cover-art-archive']?.front!==true)||String(a.date||'').localeCompare(String(b.date||''))).slice(0,6);
+  }
+  async function resolveArtwork(album,signal){
+    if(friendBeta()||album.source!=='musicbrainz'||!album.id)return null;
+    if(!artworkJobs.has(album.id))artworkJobs.set(album.id,(async()=>{
+      const key='artwork:'+album.id,stored=await get(key).catch(()=>null);
+      if(stored&&Date.now()-stored.time<(stored.art?2592000000:21600000))return stored.art?stored:null;
+      const data=await catalog(`https://musicbrainz.org/ws/2/release?release-group=${encodeURIComponent(album.id)}&status=official&fmt=json&limit=100`,signal);
+      let found=null;
+      for(const release of officialReleaseCandidates(data.releases||[],album)){
+        if(signal?.aborted)throw new DOMException('Cancelled','AbortError');
+        const thumb=`https://coverartarchive.org/release/${release.id}/front-250`;
+        try{await loadImage(thumb);found={art:`https://coverartarchive.org/release/${release.id}/front-500`,thumb};break;}catch(_){}
+      }
+      void put(key,{time:Date.now(),...found}).catch(()=>{});
+      return found;
+    })().finally(()=>artworkJobs.delete(album.id)));
+    const found=await artworkJobs.get(album.id);
+    if(found){album.art=found.art;album.thumb=found.thumb;}
+    return found?.art||null;
+  }
+  async function discoverArtistAlbums(familiarArtist,onProgress=()=>{},signal){
+    const matches=await artists(familiarArtist.name,signal);
+    const match=matches.find(a=>normal(a.name)===normal(familiarArtist.name));
+    if(!match)return [];
+    const releases=(await albums(match,signal)).filter(a=>a.category==='albums'||a.category==='eps').slice(0,40);
+    const verified=[];let cursor=0;
+    await Promise.all(Array.from({length:4},async()=>{
+      while(cursor<releases.length){
+        if(signal?.aborted)throw new DOMException('Cancelled','AbortError');
+        const candidate=releases[cursor++];
+        try{await loadImage(candidate.thumb);}catch(_){try{if(!await resolveArtwork(candidate,signal))continue;}catch(e){if(e.name==='AbortError')throw e;continue;}}
+        verified.push(candidate);
+        onProgress(unique(verified,100));
+      }
+    }));
+    return unique(verified,100);
   }
   async function analyze(album){
     if(album.color)return album.color;
@@ -123,19 +204,41 @@
   async function analyzeAll(items){let i=0;await Promise.all(Array.from({length:4},async()=>{while(i<items.length)await analyze(items[i++]);}));return items;}
   function spotifyAlbum(a){const images=a.images||[];return {id:'spotify-'+a.id,title:a.name,artist:(a.artists||[]).map(x=>x.name).join(' & '),artistIds:a.artists||[],year:a.release_date?.slice(0,4),art:images[0]?.url,thumb:images.find(x=>x.width>=250&&x.width<500)?.url||images[0]?.url,url:a.external_urls?.spotify,source:'spotify',provenance:'history'};}
   async function importSpotify(token,range,otherRanges=true,onProgress=()=>{},request=fetch){
-    const headers={Authorization:'Bearer '+token};let collection=[],trackIds=new Set(),weights=new Map(),pages=0,limited=false;
-    const read=async url=>{if(new URL(url).origin!=='https://api.spotify.com')throw new Error('Invalid Spotify page');const r=await request(url,{headers});if(!r.ok){const e=new Error(r.status===403?'Spotify has not approved this account for this beta. Ask the owner to add your Spotify email.':r.status===429?'Spotify is busy. Try importing again later.':'Spotify could not finish the import. Please reconnect.');e.status=r.status;throw e;}return r.json();};
+    const headers={Authorization:'Bearer '+token};let collection=[],trackIds=new Set(),weights=new Map(),pages=0,artistPages=0,missingArtwork=0,limitReason=null;
+    const read=async url=>{
+      if(new URL(url).origin!=='https://api.spotify.com')throw new Error('Invalid Spotify page');
+      for(let attempt=0;attempt<2;attempt++){
+        const r=await request(url,{headers});
+        if(r.ok)return r.json();
+        const body=await r.json().catch(()=>({}));
+        const reason=body?.error?.reason;
+        if(r.status===429&&reason!=='QUOTA_EXCEEDED'&&attempt===0){const seconds=Number(r.headers?.get?.('Retry-After'));if(Number.isFinite(seconds)&&seconds>=0&&seconds<=15){await wait(seconds*1000);continue;}}
+        const kind=r.status===429?(reason==='QUOTA_EXCEEDED'?'quota':'rate_limit'):r.status===401?'auth':r.status===403?'access':'service';
+        const e=new Error(kind==='quota'?'Spotify’s beta request quota is temporarily exhausted. Try again later.':kind==='rate_limit'?'Spotify is rate-limiting requests. Try again later.':kind==='access'?'Spotify has not approved this account for this beta. Ask the owner to add your Spotify email.':kind==='auth'?'Spotify sign-in expired. Please reconnect.':'Spotify could not finish the import. Please reconnect.');
+        e.status=r.status;e.kind=kind;throw e;
+      }
+    };
+    const addWeight=(artist,amount)=>{if(!artist?.id)return;const old=weights.get(artist.id);weights.set(artist.id,{id:artist.id,name:artist.name||old?.name||'Artist',weight:(old?.weight||0)+amount});};
     const ranges=otherRanges?[range,...['long_term','medium_term','short_term'].filter(x=>x!==range)]:[range];
     outer:for(const period of ranges){let next=`https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=${period}`,visited=new Set(),n=0;
-      while(next&&n<3){if(visited.has(next))break;visited.add(next);let data;try{data=await read(next);}catch(e){if(!collection.length)throw e;limited=true;break outer;}
-        pages++;n++;for(const entry of data.items||[]){const t=entry.item||entry;if(!t.album||trackIds.has(t.id))continue;trackIds.add(t.id);const a=t.artists?.[0];if(a?.id)weights.set(a.id,{id:a.id,name:a.name,weight:(weights.get(a.id)?.weight||0)+1});collection=unique(collection.concat(spotifyAlbum(t.album)),60);}
-        onProgress(collection.length);if(collection.length>=60)break outer;next=data.next;if(n===3&&next)limited=true;
+      while(next&&n<3){if(visited.has(next)){limitReason='incomplete';break;}visited.add(next);let data;try{data=await read(next);}catch(e){if(!collection.length)throw e;limitReason=e.kind||'service';break outer;}
+        if(!Array.isArray(data?.items)){limitReason='incomplete';break outer;}
+        pages++;n++;data.items.forEach((entry,index)=>{const t=entry.item||entry;if(!t?.album)return;
+          (t.artists||[]).slice(0,2).forEach((artist,i)=>addWeight(artist,(i?0.3:1)*(period===range?1.2:1)/(1+((n-1)*50+index)/20)));
+          if(t.id&&trackIds.has(t.id))return;if(t.id)trackIds.add(t.id);
+          const album=spotifyAlbum(t.album);if(!album.art){missingArtwork++;return;}
+          collection=unique(collection.concat(album),60);
+        });
+        onProgress(collection.length);if(collection.length>=60)break outer;next=data.next;if(n===3&&next)limitReason='page_window';
       }
     }
-    const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,3),pools=[];
-    if(collection.length<60&&!limited)for(const artist of top){try{const data=await read(`https://api.spotify.com/v1/artists/${encodeURIComponent(artist.id)}/albums?include_groups=album&limit=50`);pools.push((data.items||[]).filter(a=>a.album_group!=='appears_on').map(spotifyAlbum));}catch(_){pools.push([]);}}
-    return {albums:collection,artists:top,pools,suggestions:recommend(top,pools,collection,60-collection.length),stats:{pages,tracks:trackIds.size,ranges,limited}};
+    if(collection.length<60&&!['quota','rate_limit','auth','access'].includes(limitReason))for(const period of ranges){
+      try{const data=await read(`https://api.spotify.com/v1/me/top/artists?limit=20&time_range=${period}`);if(!Array.isArray(data?.items)){limitReason='incomplete';break;}artistPages++;data.items.forEach((artist,index)=>addWeight(artist,(period===range?1.2:1)*2/(1+index/5)));}
+      catch(e){limitReason=e.kind||'service';break;}
+    }
+    const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
+    return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,ordered,arrange,recommend,get,put,artists,albums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
+  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
