@@ -3,6 +3,15 @@
   'use strict';
   const normal = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*(?:deluxe|remaster|expanded|anniversary|edition|explicit|clean)[^)]*\)|\[[^\]]*(?:deluxe|remaster|edition)[^\]]*\]/g, '').replace(/\s*[-–—:]\s*(?:deluxe|expanded|remaster(?:ed)?|anniversary|special|bonus)\b.*$/i,'').replace(/[^a-z0-9]/g, '');
   const identity = a => `${normal(a.artist)}:${normal(a.title)}`;
+  const friendBeta = () => root.CornerstoneConfig?.release === 'friend-beta';
+  // Original abstract visuals contain no provider artwork. Metadata remains artist/album-specific.
+  function betaAlbum(album) {
+    const name=identity(album), hash=[...name].reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619)>>>0,2166136261);
+    const hue=hash%360, color=[0,1,2].map((_,i)=>Math.round((Math.sin((hue+i*75)*Math.PI/180)+1)*63+55));
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="hsl(${hue} 48% 48%)"/><stop offset="1" stop-color="hsl(${(hue+95)%360} 50% 20%)"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/><circle cx="${130+hash%260}" cy="${160+(hash>>>8)%240}" r="195" fill="none" stroke="#ffffff6b" stroke-width="56"/><path d="M-60 ${230+(hash>>>16)%170} Q 260 15 670 400" fill="none" stroke="#ffffff42" stroke-width="75"/><circle cx="470" cy="470" r="60" fill="#ffffff55"/></svg>`;
+    const art='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    return {...album,art,thumb:art,color,source:'beta-original',metadataSource:album.metadataSource||album.source||'manual'};
+  }
   function unique(items, limit = 60) {
     const ids = new Set(), names = new Set(), arts = new Set();
     return items.filter(a => {
@@ -127,7 +136,7 @@
     for(let page=0;page<3;page++){
       const data=await catalog(`https://musicbrainz.org/ws/2/release-group?artist=${encodeURIComponent(artist.id)}&release-group-status=website-default&fmt=json&limit=100&offset=${offset}`,signal);
       const groups=data['release-groups']||[];
-      result.push(...groups.map(g=>({id:g.id,title:g.title,artist:artist.name,artistId:artist.id,year:g['first-release-date']?.slice(0,4),category:releaseCategory(g),releaseType:[g['primary-type'],...(g['secondary-types']||[])].filter(Boolean).join(' · '),art:`https://coverartarchive.org/release-group/${g.id}/front-500`,thumb:`https://coverartarchive.org/release-group/${g.id}/front-250`,url:`https://musicbrainz.org/release-group/${g.id}`,source:'musicbrainz'})));
+      result.push(...groups.map(g=>{const a={id:g.id,title:g.title,artist:artist.name,artistId:artist.id,year:g['first-release-date']?.slice(0,4),category:releaseCategory(g),releaseType:[g['primary-type'],...(g['secondary-types']||[])].filter(Boolean).join(' · '),art:`https://coverartarchive.org/release-group/${g.id}/front-500`,thumb:`https://coverartarchive.org/release-group/${g.id}/front-250`,url:`https://musicbrainz.org/release-group/${g.id}`,source:'musicbrainz'};return friendBeta()?betaAlbum(a):a;}));
       offset+=groups.length;
       const visible=unique(result,10000).sort(albumOrder);
       visible.nextOffset=groups.length&&offset<(data['release-group-count']||groups.length)?offset:null;
@@ -152,7 +161,7 @@
       .sort((a,b)=>Number(plain(a.title)!==plain(album.title))-Number(plain(b.title)!==plain(album.title))||Number(a['cover-art-archive']?.front!==true)-Number(b['cover-art-archive']?.front!==true)||String(a.date||'').localeCompare(String(b.date||''))).slice(0,6);
   }
   async function resolveArtwork(album,signal){
-    if(album.source!=='musicbrainz'||!album.id)return null;
+    if(friendBeta()||album.source!=='musicbrainz'||!album.id)return null;
     if(!artworkJobs.has(album.id))artworkJobs.set(album.id,(async()=>{
       const key='artwork:'+album.id,stored=await get(key).catch(()=>null);
       if(stored&&Date.now()-stored.time<(stored.art?2592000000:21600000))return stored.art?stored:null;
@@ -230,6 +239,6 @@
     const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
     return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
+  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

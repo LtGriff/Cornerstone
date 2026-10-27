@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#0b0b0d">
   <meta name="description" content="Turn favorite albums or colors into a living wall anchored by four permanent cornerstones.">
   <title>Cornerstone</title>
+  <script src="beta-config.js"></script>
   <script>
     try { if (localStorage.getItem('cornerstone-theme') === 'day') document.documentElement.dataset.theme = 'day'; } catch (_) {}
   </script>
@@ -822,16 +823,17 @@
 
       const $ = (id) => document.getElementById(id);
       const C = window.CornerstoneCore;
+      const friendBeta = window.CornerstoneConfig?.release === 'friend-beta';
       const SPOTIFY_CLIENT_ID = '3373b0d8342c4805b6662861c8f47427';
       const query = new URLSearchParams(window.location.search);
       const wallpaperMode = query.has('wallpaper');
       const initialMode = query.get('mode') === 'albums' ? 'albums' : 'colors';
       if (wallpaperMode) { document.body.classList.add('wallpaper-mode'); document.body.classList.remove('onboarding'); }
-      const chartAlbums = C.unique(window.TOP_SONGS || []);
+      const chartAlbums = friendBeta ? [] : C.unique(window.TOP_SONGS || []);
       let savedAlbums = [];
       try {
         const saved = JSON.parse(localStorage.getItem('cornerstone-albums') || localStorage.getItem('tilewall-albums') || '[]');
-        if (Array.isArray(saved)) savedAlbums = saved.filter((album) => album?.art && album?.title && album?.artist).slice(0, 60);
+        if (!friendBeta && Array.isArray(saved)) savedAlbums = saved.filter((album) => album?.art && album?.title && album?.artist).slice(0, 60);
       } catch (_) {}
       const startingAlbums = savedAlbums.length >= 4 ? savedAlbums : chartAlbums.sort(() => Math.random() - .5);
       const state = {
@@ -1738,7 +1740,7 @@
           albumSearchResults=results;
           $('albumResults').classList.remove('artist-results');
           renderAlbumResults();
-          $('albumSearchStatus').textContent=results.length ? `Albums by ${artist.name}. Covers arrive as they load.` : 'No albums found. You can upload a cover below.';
+          $('albumSearchStatus').textContent=results.length ? (friendBeta ? `Albums by ${artist.name}. These original visuals are not album cover art.` : `Albums by ${artist.name}. Covers arrive as they load.`) : (friendBeta ? 'No albums found. Try another artist or search again later.' : 'No albums found. You can upload a cover below.');
         } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
       }
       async function loadMoreArtistAlbums() {
@@ -1859,6 +1861,7 @@
 
       $('manualAlbumForm').addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (friendBeta) { $('albumSearchStatus').textContent = 'Artwork uploads are unavailable in this shared beta. Search an artist to use an original visual instead.'; return; }
         const file = $('manualArtwork').files?.[0];
         if (!file || (draftAlbums.length >= 60 && cornerstoneTarget === null && !replacementTarget)) return;
         $('albumSearchStatus').textContent = 'Preparing your cover…';
@@ -1911,6 +1914,7 @@
       }
 
       $('connectSpotify').addEventListener('click', () => {
+        if (friendBeta) return;
         $('spotifyClientId').value = SPOTIFY_CLIENT_ID || localStorage.getItem('cornerstone-spotify-client-id') || '';
         $('spotifyClientIdField').hidden = Boolean(SPOTIFY_CLIENT_ID);
         $('spotifyRedirect').textContent = spotifyRedirectUri();
@@ -1922,6 +1926,7 @@
 
       $('spotifyForm').addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (friendBeta) return;
         const clientId = SPOTIFY_CLIENT_ID || $('spotifyClientId').value.trim();
         if (!clientId) return;
         const verifier = base64Url(crypto.getRandomValues(new Uint8Array(64)));
@@ -2014,6 +2019,7 @@
         button.disabled = true;
         button.textContent = 'Building wallpaper…';
         try {
+          if (friendBeta && state.mode === 'albums' && state.albums.some(album => album.source !== 'beta-original')) throw new Error('This beta exports only original visuals. Please choose albums again in the beta selector.');
           const frame = state.frame === 'none' ? 0 : Math.round(width * state.frameInches * .035);
           const innerWidth = width - frame * 2, innerHeight = height - frame * 2;
           const available = state.mode === 'albums' ? state.albums.length : 60;
@@ -2056,6 +2062,13 @@
 
       $('savePhone').addEventListener('click', () => saveWallpaper($('savePhone'), 1290, 2796, 'phone'));
       $('saveDesktop').addEventListener('click', () => saveWallpaper($('saveDesktop'), 3840, 2160, 'desktop'));
+
+      if (friendBeta) {
+        document.querySelector('.manual-cover').hidden = true;
+        $('connectSpotify').hidden = true;
+        document.querySelector('.picker-credit').innerHTML = 'Album names from <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · original beta visuals, not album cover art';
+        document.querySelector('.spotify-note')?.replaceChildren(document.createTextNode('Shared beta: Spotify sign-in is paused until a real approved-account test passes. Search for albums or create by color. Album names use original visual tiles, not provider cover art.'));
+      }
 
       $('applyAlbums').addEventListener('click', () => {
         if (replacementTarget) return;
@@ -2196,5 +2209,6 @@
     })();
   </script>
   <script src="studio.js"></script>
+  <script src="beta-ui.js"></script>
 </body>
 </html>

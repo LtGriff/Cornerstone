@@ -1,5 +1,13 @@
 const test=require('node:test'),assert=require('node:assert/strict'),C=require('../dist/core.js');
 const album=(i,artist='Artist')=>({id:String(i),title:'Album '+i,artist,art:'https://example.com/'+i+'.jpg',color:[(i*37)%255,(i*71)%255,(i*21)%255]});
+test('friend-beta originals replace provider art without collapsing distinct album identities',()=>{
+ const original=album(1),first=C.betaAlbum(original),second=C.betaAlbum(album(2));
+ assert.equal(first.source,'beta-original');assert.equal(first.metadataSource,'manual');
+ assert.ok(first.art.startsWith('data:image/svg+xml;charset=utf-8,'));
+ assert.equal(first.art.includes('example.com'),false);
+ assert.equal(C.unique([first,second]).length,2);
+ assert.equal(original.art,'https://example.com/1.jpg');
+});
 test('deduplicates IDs, artwork and edition variants across catalogs',()=>{assert.equal(C.unique([album(1),{...album(1),id:'else'},album(2),{...album(2),id:'third',art:'https://else/2.jpg',title:'Album 2 (Deluxe Edition)'}]).length,2);});
 test('deduplicates dash-style deluxe releases across distinct IDs',()=>{assert.equal(C.unique([album(1),{...album(1),id:'deluxe',art:'https://else/deluxe.jpg',title:'Album 1 - Deluxe Edition'}]).length,1);});
 test('MusicBrainz release types keep studio albums, EPs and special releases distinct',()=>{
