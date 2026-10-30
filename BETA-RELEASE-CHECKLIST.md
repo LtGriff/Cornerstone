@@ -2,7 +2,7 @@
 
 ## Blockers for the full album-art / Spotify experience
 
-- Real Spotify authorization and import remain **NOT VERIFIED**. The owner currently lacks Premium. Do not enable the Spotify journey for friends until an approved test account completes consent, import, recommendations, cancellation, and reconnection.
+- Real Spotify authorization and import remain **NOT VERIFIED**. The owner reports Premium is restored, but the Dashboard configuration and approved-account flow have not been checked here. The shared beta now offers Spotify sign-in to approved testers with an explicit unverified warning; do not claim it works until consent, import, recommendations, cancellation, and reconnection pass.
 - Third-party artwork display, animation, bundled examples, uploads, and PNG redistribution need rights/platform review. The shared beta instead uses original generated visuals and does not package Tre's Picks screenshots or Apple chart artwork. The local development build retains the prior experience for work and review.
 - A project-saving, credential, or privacy defect found during beta testing is a stop-ship issue. No tokens, project contents, images, or private listening data should enter feedback reports.
 
@@ -10,6 +10,7 @@
 
 - Test actual Chrome, Firefox, Edge, iPhone Safari, and Android Chrome before claiming cross-browser support. A desktop browser's phone-size viewport is not a physical-device test.
 - MusicBrainz requests currently come directly from the browser. Its application-specific User-Agent expectation cannot be reliably met by cross-origin browser fetch; provider reliability needs review or a narrowly scoped proxy.
+- Cover Art Archive currently returns server errors for some known albums. The picker attempts real cover previews and falls back immediately to named original visuals; provider recovery is outside Cornerstone's control.
 - Check catalog quality, 390px mobile usability, picker scrolling, keyboard/touch swapping, color inputs, resume, and both export sizes with real testers.
 - Confirm exact GitHub Pages casing `/Cornerstone/` and no missing assets or development-only controls after each deployment.
 

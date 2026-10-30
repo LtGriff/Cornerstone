@@ -8,9 +8,19 @@
   function betaAlbum(album) {
     const name=identity(album), hash=[...name].reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619)>>>0,2166136261);
     const hue=hash%360, color=[0,1,2].map((_,i)=>Math.round((Math.sin((hue+i*75)*Math.PI/180)+1)*63+55));
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="hsl(${hue} 48% 48%)"/><stop offset="1" stop-color="hsl(${(hue+95)%360} 50% 20%)"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/><circle cx="${130+hash%260}" cy="${160+(hash>>>8)%240}" r="195" fill="none" stroke="#ffffff6b" stroke-width="56"/><path d="M-60 ${230+(hash>>>16)%170} Q 260 15 670 400" fill="none" stroke="#ffffff42" stroke-width="75"/><circle cx="470" cy="470" r="60" fill="#ffffff55"/></svg>`;
+    const xml=value=>String(value||'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[character]));
+    const title=String(album.title||'Album').trim().slice(0,64), words=title.split(/\s+/),lines=[''];
+    for(const word of words){const last=lines.length-1;if((lines[last]+' '+word).trim().length>19&&lines.length<2)lines.push(word);else lines[last]=(lines[last]+' '+word).trim();}
+    lines[1]=lines[1]?.slice(0,22);
+    const titleText=lines.filter(Boolean).map((line,i)=>`<text x="44" y="${455+i*48}" font-size="42" font-weight="700">${xml(line)}</text>`).join('');
+    const artistText=xml(String(album.artist||'Artist').trim().slice(0,32));
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="hsl(${hue} 48% 48%)"/><stop offset="1" stop-color="hsl(${(hue+95)%360} 50% 20%)"/></linearGradient><linearGradient id="shade" x2="0" y2="1"><stop stop-color="#00000000"/><stop offset="1" stop-color="#000000ac"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/><circle cx="${130+hash%260}" cy="${160+(hash>>>8)%240}" r="195" fill="none" stroke="#ffffff6b" stroke-width="56"/><path d="M-60 ${230+(hash>>>16)%170} Q 260 15 670 400" fill="none" stroke="#ffffff42" stroke-width="75"/><circle cx="470" cy="470" r="60" fill="#ffffff55"/><rect y="300" width="600" height="300" fill="url(#shade)"/><g fill="#fff" font-family="Arial, sans-serif">${titleText}<text x="46" y="563" font-size="23" font-weight="600" letter-spacing="2">${artistText}</text></g></svg>`;
     const art='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-    return {...album,art,thumb:art,color,source:'beta-original',metadataSource:album.metadataSource||album.source||'manual'};
+    const catalogAlbum=album.metadataSource==='musicbrainz'||album.source==='musicbrainz';
+    const catalogId=catalogAlbum&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(album.id||'')?album.id:null;
+    const previewThumb=catalogAlbum ? album.previewThumb||(album.source==='musicbrainz'?album.thumb:null)||(catalogId?`https://coverartarchive.org/release-group/${catalogId}/front-250`:undefined) : undefined;
+    const previewArt=catalogAlbum ? album.previewArt||(album.source==='musicbrainz'?album.art:null)||(catalogId?`https://coverartarchive.org/release-group/${catalogId}/front-500`:undefined) : undefined;
+    return {...album,art,thumb:art,previewThumb,previewArt,color,source:'beta-original',metadataSource:album.metadataSource||album.source||'manual'};
   }
   function unique(items, limit = 60) {
     const ids = new Set(), names = new Set(), arts = new Set();
@@ -154,6 +164,9 @@
     const entry={promise:new Promise((resolve,reject)=>{const im=new Image();const timer=setTimeout(()=>{im.src='';reject(new Error('Artwork timed out'));},12000);im.crossOrigin='anonymous';im.onload=()=>{clearTimeout(timer);resolve(im);};im.onerror=()=>{clearTimeout(timer);reject(new Error('Artwork unavailable'));};im.src=url;})};
     entry.promise=entry.promise.catch(e=>{entry.failedAt=Date.now();throw e;});imageCache.set(url,entry);return entry.promise;
   }
+  function loadPreviewImage(url){
+    return new Promise((resolve,reject)=>{const im=new Image(),timer=setTimeout(()=>{im.src='';reject(new Error('Cover preview timed out'));},8000);im.onload=()=>{clearTimeout(timer);resolve(im);};im.onerror=()=>{clearTimeout(timer);reject(new Error('Cover preview unavailable'));};im.src=url;});
+  }
   const artworkJobs=new Map();
   function officialReleaseCandidates(releases,album){
     const plain=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
@@ -161,7 +174,8 @@
       .sort((a,b)=>Number(plain(a.title)!==plain(album.title))-Number(plain(b.title)!==plain(album.title))||Number(a['cover-art-archive']?.front!==true)-Number(b['cover-art-archive']?.front!==true)||String(a.date||'').localeCompare(String(b.date||''))).slice(0,6);
   }
   async function resolveArtwork(album,signal){
-    if(friendBeta()||album.source!=='musicbrainz'||!album.id)return null;
+    const previewOnly=friendBeta()&&album.metadataSource==='musicbrainz';
+    if((friendBeta()&&!previewOnly)||(!previewOnly&&album.source!=='musicbrainz')||!album.id)return null;
     if(!artworkJobs.has(album.id))artworkJobs.set(album.id,(async()=>{
       const key='artwork:'+album.id,stored=await get(key).catch(()=>null);
       if(stored&&Date.now()-stored.time<(stored.art?2592000000:21600000))return stored.art?stored:null;
@@ -170,13 +184,13 @@
       for(const release of officialReleaseCandidates(data.releases||[],album)){
         if(signal?.aborted)throw new DOMException('Cancelled','AbortError');
         const thumb=`https://coverartarchive.org/release/${release.id}/front-250`;
-        try{await loadImage(thumb);found={art:`https://coverartarchive.org/release/${release.id}/front-500`,thumb};break;}catch(_){}
+        try{await (previewOnly?loadPreviewImage(thumb):loadImage(thumb));found={art:`https://coverartarchive.org/release/${release.id}/front-500`,thumb};break;}catch(_){}
       }
       void put(key,{time:Date.now(),...found}).catch(()=>{});
       return found;
     })().finally(()=>artworkJobs.delete(album.id)));
     const found=await artworkJobs.get(album.id);
-    if(found){album.art=found.art;album.thumb=found.thumb;}
+    if(found){if(previewOnly){album.previewArt=found.art;album.previewThumb=found.thumb;}else{album.art=found.art;album.thumb=found.thumb;}}
     return found?.art||null;
   }
   async function discoverArtistAlbums(familiarArtist,onProgress=()=>{},signal){
