@@ -4,7 +4,7 @@
   const normal = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*(?:deluxe|remaster|expanded|anniversary|edition|explicit|clean)[^)]*\)|\[[^\]]*(?:deluxe|remaster|edition)[^\]]*\]/g, '').replace(/\s*[-–—:]\s*(?:deluxe|expanded|remaster(?:ed)?|anniversary|special|bonus)\b.*$/i,'').replace(/[^a-z0-9]/g, '');
   const identity = a => `${normal(a.artist)}:${normal(a.title)}`;
   const friendBeta = () => root.CornerstoneConfig?.release === 'friend-beta';
-  // Original abstract visuals contain no provider artwork. Metadata remains artist/album-specific.
+  // Keep original art as a fallback; provider covers are display-only previews, never exports.
   function betaAlbum(album) {
     const name=identity(album), hash=[...name].reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619)>>>0,2166136261);
     const hue=hash%360, color=[0,1,2].map((_,i)=>Math.round((Math.sin((hue+i*75)*Math.PI/180)+1)*63+55));
@@ -17,11 +17,13 @@
     const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="hsl(${hue} 48% 48%)"/><stop offset="1" stop-color="hsl(${(hue+95)%360} 50% 20%)"/></linearGradient><linearGradient id="shade" x2="0" y2="1"><stop stop-color="#00000000"/><stop offset="1" stop-color="#000000ac"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/><circle cx="${130+hash%260}" cy="${160+(hash>>>8)%240}" r="195" fill="none" stroke="#ffffff6b" stroke-width="56"/><path d="M-60 ${230+(hash>>>16)%170} Q 260 15 670 400" fill="none" stroke="#ffffff42" stroke-width="75"/><circle cx="470" cy="470" r="60" fill="#ffffff55"/><rect y="300" width="600" height="300" fill="url(#shade)"/><g fill="#fff" font-family="Arial, sans-serif">${titleText}<text x="46" y="563" font-size="23" font-weight="600" letter-spacing="2">${artistText}</text></g></svg>`;
     const art='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
     const catalogAlbum=album.metadataSource==='musicbrainz'||album.source==='musicbrainz';
+    const spotifyAlbum=album.metadataSource==='spotify'||album.source==='spotify';
     const catalogId=catalogAlbum&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(album.id||'')?album.id:null;
-    const previewThumb=catalogAlbum ? album.previewThumb||(album.source==='musicbrainz'?album.thumb:null)||(catalogId?`https://coverartarchive.org/release-group/${catalogId}/front-250`:undefined) : undefined;
-    const previewArt=catalogAlbum ? album.previewArt||(album.source==='musicbrainz'?album.art:null)||(catalogId?`https://coverartarchive.org/release-group/${catalogId}/front-500`:undefined) : undefined;
+    const previewThumb=album.previewThumb||(catalogAlbum ? (album.source==='musicbrainz'?album.thumb:null)||(catalogId?`https://coverartarchive.org/release-group/${catalogId}/front-250`:undefined) : spotifyAlbum&&album.source==='spotify'?album.thumb:undefined);
+    const previewArt=album.previewArt||(catalogAlbum ? (album.source==='musicbrainz'?album.art:null)||(catalogId?`https://coverartarchive.org/release-group/${catalogId}/front-500`:undefined) : spotifyAlbum&&album.source==='spotify'?album.art:undefined);
     return {...album,art,thumb:art,previewThumb,previewArt,color,source:'beta-original',metadataSource:album.metadataSource||album.source||'manual'};
   }
+  const displayArt = album => friendBeta() ? album.previewThumb||album.previewArt||album.art : album.art;
   function unique(items, limit = 60) {
     const ids = new Set(), names = new Set(), arts = new Set();
     return items.filter(a => {
@@ -253,6 +255,6 @@
     const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
     return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
+  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

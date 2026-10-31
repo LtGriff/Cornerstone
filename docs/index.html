@@ -496,7 +496,7 @@
     .wall-edit-actions { position: fixed; left: 50%; bottom: clamp(16px,3vw,34px); z-index: 6; display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 7px; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; background: rgba(25,27,34,.82); color: #fff; box-shadow: 0 12px 36px #0008; backdrop-filter: blur(20px); transform: translateX(-50%); }
     .wall-edit-actions[hidden] { display: none; }
     .wall-edit-actions span { overflow: hidden; max-width: 180px; padding-left: 8px; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-    .wall-edit-actions button { min-height: 36px; padding: 0 12px; border: 1px solid #ffffff55; border-radius: 999px; background: #ffffff1f; color: inherit; cursor: pointer; white-space: nowrap; }
+    .wall-edit-actions button,.wall-edit-actions a:not([hidden]) { min-height: 36px; padding: 0 12px; border: 1px solid #ffffff55; border-radius: 999px; background: #ffffff1f; color: inherit; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-size: 13px; }
     .wall-edit-actions button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
     body.onboarding .wall-edit-actions, body.wallpaper-mode .wall-edit-actions { display: none; }
     body:has(.screen:fullscreen) .wall-edit-actions { display: none; }
@@ -560,6 +560,23 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+    }
+    /* Provider previews are static, uncropped images; beta exports remain separate. */
+    html.friend-beta.provider-preview .face img { object-fit: contain; }
+    html.friend-beta.provider-preview .tile-inner { animation: none !important; transform: none !important; }
+    html.friend-beta.provider-preview .tile.is-editable:hover::before,
+    html.friend-beta.provider-preview .tile.is-editable.is-selected::before,
+    html.friend-beta.provider-preview .tile.cornerstone::after { display: none; }
+    html.friend-beta.provider-preview .tile.is-editable:hover,
+    html.friend-beta.provider-preview .tile.is-editable.is-selected { outline: 2px solid #fff; outline-offset: -2px; }
+    .provider-credit { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); text-decoration: none; font-size: 11px; }
+    .provider-credit img { width: 94px; height: auto; filter: brightness(0) invert(1); }
+    html[data-theme=day] .provider-credit img { filter: none; }
+    .provider-credit[hidden] { display: none; }
+    @media (max-width: 600px) {
+      .preview-toolbar { flex-wrap: wrap; gap: 8px; }
+      .preview-toolbar .device-switch { margin-left: auto; }
+      .provider-credit:not([hidden]) { order: 3; width: 100%; justify-content: center; }
     }
 
     .screen-label {
@@ -693,11 +710,13 @@
         <button class="action" id="savePhone" type="button">Save phone wallpaper</button>
         <button class="action" id="saveDesktop" type="button">Save desktop wallpaper</button>
       </div>
+      <p class="tip" id="albumExportNote" hidden>Album-cover downloads are paused in this beta. Color wallpapers can still be saved.</p>
     </section>
 
     <section class="workspace" aria-label="Wallpaper preview">
       <div class="preview-toolbar">
         <span>Live preview</span>
+        <a class="provider-credit" id="spotifyCredit" href="https://open.spotify.com/" target="_blank" rel="noopener noreferrer" hidden><span>Albums via</span><img src="https://developer-assets.spotifycdn.com/images/guidelines/design/logo.svg" alt="Spotify"></a>
         <div class="device-switch" aria-label="Preview shape">
           <button class="icon-button" id="desktopView" type="button" aria-pressed="true">Desktop</button>
           <button class="icon-button" id="phoneView" type="button" aria-pressed="false">Phone</button>
@@ -709,7 +728,7 @@
           <span class="screen-label" id="screenLabel">12 tiles · four cornerstones · gentle motion</span>
         </div>
       </div>
-      <div class="wall-edit-actions" id="wallEditActions" hidden><span id="wallEditTitle"></span><button id="replaceTile" type="button">Replace album</button><button id="undoReplacement" type="button" hidden>Undo replacement</button><button id="dismissTile" type="button" aria-label="Close album actions">×</button></div>
+      <div class="wall-edit-actions" id="wallEditActions" hidden><span id="wallEditTitle"></span><a id="openSpotifyAlbum" href="https://open.spotify.com/" target="_blank" rel="noopener noreferrer" hidden>Open Spotify ↗</a><button id="replaceTile" type="button">Replace album</button><button id="undoReplacement" type="button" hidden>Undo replacement</button><button id="dismissTile" type="button" aria-label="Close album actions">×</button></div>
       <p class="tip">Every choice updates the preview immediately.</p>
     </section>
   </main>
@@ -971,16 +990,16 @@
         }
         tile.innerHTML = '<div class="tile-inner"><div class="face front"></div><div class="face back"></div></div>';
         const frontImage = new Image();
-        frontImage.crossOrigin = 'anonymous';
+        if (!friendBeta) frontImage.crossOrigin = 'anonymous';
         frontImage.draggable = false;
-        frontImage.src = album.art;
+        frontImage.src = C.displayArt(album);
         frontImage.alt = `${album.title} by ${album.artist}`;
         const backImage = new Image();
-        backImage.crossOrigin = 'anonymous';
+        if (!friendBeta) backImage.crossOrigin = 'anonymous';
         backImage.draggable = false;
-        backImage.src = next.art;
+        backImage.src = C.displayArt(next);
         backImage.alt = `${next.title} by ${next.artist}`;
-        [frontImage,backImage].forEach(image=>{image.decoding='async';image.addEventListener('error',()=>{image.hidden=true;const label=document.createElement('span');label.className='cover-fallback';label.textContent=image.alt+' · Cover unavailable';image.parentElement?.append(label);},{once:true});});
+        [[frontImage,album],[backImage,next]].forEach(([image,item])=>{image.decoding='async';image.addEventListener('error',()=>{if(friendBeta&&!image.dataset.fallback&&C.displayArt(item)!==item.art){image.dataset.fallback='true';image.src=item.art;return;}image.hidden=true;const label=document.createElement('span');label.className='cover-fallback';label.textContent=image.alt+' · Cover unavailable';image.parentElement?.append(label);});});
         tile.querySelector('.front').append(frontImage);
         tile.querySelector('.back').append(backImage);
         prepareWave(tile, index, columns, rows, wave);
@@ -994,6 +1013,10 @@
       function renderGrid({ wave = false, refreshBleed = false } = {}) {
         clearWallSelection();
         const grid = $('grid');
+        const providerPreview = friendBeta && state.mode === 'albums' && state.albums.some(album => album.previewThumb || album.previewArt);
+        document.documentElement.classList.toggle('provider-preview', providerPreview);
+        $('spotifyCredit').hidden = !(providerPreview && state.albums.some(album => album.metadataSource === 'spotify'));
+        if (providerPreview) wave = false;
         const shape = gridShape();
         state.count = shape.count;
         state.columns = shape.columns;
@@ -1046,6 +1069,8 @@
         $('wallEditTitle').textContent = state.arrangement === 'manual' && tile.dataset.pinned !== 'true' ? `Choose another tile · ${album.title}` : album.title;
         $('replaceTile').hidden = false;
         $('replaceTile').textContent = tile.dataset.pinned === 'true' ? 'Edit cornerstone' : 'Replace album';
+        $('openSpotifyAlbum').hidden = !(album.metadataSource === 'spotify' && /^https:\/\/open\.spotify\.com\/album\/[A-Za-z0-9]+(?:\?.*)?$/.test(album.url||''));
+        if (!$('openSpotifyAlbum').hidden) $('openSpotifyAlbum').href = album.url;
         $('undoReplacement').hidden = !lastReplacement;
         $('wallEditActions').hidden = false;
         if (state.arrangement !== 'manual' || tile.dataset.pinned === 'true') $('replaceTile').focus({ preventScroll: true });
@@ -1150,16 +1175,16 @@
           if (revision !== replacementRevision || !tile.isConnected) return;
           tile.querySelector('.front').replaceChildren();
           const image = new Image();
-          image.crossOrigin = 'anonymous'; image.src = album.art;
+          if (!friendBeta) image.crossOrigin = 'anonymous'; image.src = C.displayArt(album);
           image.alt = `${album.title} by ${album.artist}`;
-          image.addEventListener('error', () => { image.hidden = true; tile.querySelector('.front').textContent = 'Cover unavailable'; }, { once: true });
+          image.addEventListener('error', () => { if(friendBeta&&!image.dataset.fallback&&C.displayArt(album)!==album.art){image.dataset.fallback='true';image.src=album.art;return;}image.hidden = true; tile.querySelector('.front').textContent = 'Cover unavailable'; });
           tile.querySelector('.front').append(image);
           tile.dataset.art = album.art;
           tile.dataset.albumId = C.identity(album);
           tile.setAttribute('aria-label', `${state.arrangement === 'manual' ? 'Select to swap or replace album' : 'Replace album'}: ${album.title} by ${album.artist}`);
         };
         tile.classList.remove('is-flipping');
-        if (matchMedia('(prefers-reduced-motion: reduce)').matches) { update(); return; }
+        if (document.documentElement.classList.contains('provider-preview') || matchMedia('(prefers-reduced-motion: reduce)').matches) { update(); return; }
         tile.classList.add('is-replacing');
         setTimeout(update, 240);
         setTimeout(() => { if (revision === replacementRevision) tile.classList.remove('is-replacing'); }, 500);
@@ -1324,11 +1349,12 @@
       function updateLabel() {
         const frameName = state.frame === 'frost' ? 'frost glass' : state.frame === 'smoke' ? 'smoke glass' : 'no frame';
         const material = state.mode === 'albums' ? (state.customAlbums ? 'favorite albums' : 'chart covers') : state.mode;
-        $('screenLabel').textContent = `${state.count} ${material} · four cornerstones · ${frameName} · ${state.motion ? 'gentle motion' : 'still'}`;
+        $('screenLabel').textContent = `${state.count} ${material} · four cornerstones · ${frameName} · ${document.documentElement.classList.contains('provider-preview') ? 'still cover preview' : state.motion ? 'gentle motion' : 'still'}`;
         $('shuffle').textContent = state.mode === 'albums' ? 'Shuffle albums' : 'Shuffle colors';
         $('fillNote').hidden = state.mode !== 'albums';
         $('albumTools').hidden = state.mode !== 'albums';
-        $('albumSource').textContent = state.customAlbums ? `${state.albums.length} albums saved on this device.` : 'Current chart test set.';
+        $('albumSource').textContent = friendBeta && state.mode === 'albums' && state.albums.some(album=>album.metadataSource==='spotify'&&!album.previewThumb&&!album.previewArt) ? `${state.albums.length} albums saved. Reconnect Spotify to refresh covers for this older project.` : state.customAlbums ? `${state.albums.length} albums saved on this device.` : 'Current chart test set.';
+        $('albumExportNote').hidden = !(friendBeta && state.mode === 'albums');
       }
 
       function flipOne() {
@@ -1411,7 +1437,7 @@
 
       function restartMotion() {
         window.clearInterval(flipTimer);
-        if (!state.motion || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        if (!state.motion || document.documentElement.classList.contains('provider-preview') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         updateFlipDuration();
         flipTimer = window.setInterval(flipOne, 3200);
       }
@@ -1490,8 +1516,9 @@
         const rack = $('vinylRack'), cover = $('vinylRackCover');
         rack.dataset.empty = String(!latest);
         rack.dataset.complete = String(draftAlbums.length === 60);
-        const art = latest?.thumb || latest?.art || '';
-        if (cover.getAttribute('src') !== art) { if (art) cover.src = art; else cover.removeAttribute('src'); }
+        const art = latest ? C.displayArt(latest) : '';
+        if (cover.dataset.requestedArt !== art) { cover.dataset.requestedArt=art; delete cover.dataset.fallback; if (art) cover.src = art; else cover.removeAttribute('src'); }
+        cover.onerror = () => { if (latest && !cover.dataset.fallback && art !== latest.art) { cover.dataset.fallback='true'; cover.src = latest.art; } };
         cover.hidden = !art;
         $('vinylRackTitle').textContent = latest ? latest.title : 'An empty rack, for now';
         $('pickerRackCount').textContent = `${draftAlbums.length} / 60 albums${draftAlbums.length === 60 ? ' · complete' : ''}`;
@@ -1505,6 +1532,7 @@
       }
       function animateSelection(source, cornerPosition = null) {
         cancelRackAnimation();
+        if (friendBeta) return;
         const corner = cornerPosition === null ? null : $('cornerSlots').querySelectorAll('button')[cornerPosition];
         const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (corner && !reduced) {
@@ -1587,8 +1615,9 @@
           button.title = `Remove ${album.title}`;
           const image = new Image();
           image.loading = 'lazy'; image.decoding = 'async';
-          image.src = album.thumb || album.art;
+          image.src = C.displayArt(album);
           image.alt = album.title;
+          image.onerror = () => { if (!image.dataset.fallback && C.displayArt(album) !== album.art) { image.dataset.fallback='true'; image.src = album.art; } };
           const badge = document.createElement('span');
           const position = draftCornerSlots.findIndex(choice => sameDraftAlbum(choice, album));
           badge.textContent = position >= 0 ? `C${position + 1}` : `${index + 1}`;
@@ -1753,7 +1782,7 @@
           albumSearchResults=results;
           $('albumResults').classList.remove('artist-results');
           renderAlbumResults();
-          $('albumSearchStatus').textContent=results.length ? (friendBeta ? `Albums by ${artist.name}. Cover previews arrive as they load; downloads use original visuals.` : `Albums by ${artist.name}. Covers arrive as they load.`) : (friendBeta ? 'No albums found. Try another artist or search again later.' : 'No albums found. You can upload a cover below.');
+          $('albumSearchStatus').textContent=results.length ? (friendBeta ? `Albums by ${artist.name}. Covers arrive as they load; cover-art downloads are paused in beta.` : `Albums by ${artist.name}. Covers arrive as they load.`) : (friendBeta ? 'No albums found. Try another artist or search again later.' : 'No albums found. You can upload a cover below.');
         } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
       }
       async function loadMoreArtistAlbums() {
@@ -2027,11 +2056,14 @@
       }
 
       async function saveWallpaper(button, width, height, label) {
+        if (friendBeta && state.mode === 'albums') {
+          alert('Album-cover downloads are paused in this beta while artwork permissions are reviewed. Your wall and saved project are unaffected. Color wallpapers are still downloadable.');
+          return;
+        }
         const original = button.textContent;
         button.disabled = true;
         button.textContent = 'Building wallpaper…';
         try {
-          if (friendBeta && state.mode === 'albums' && state.albums.some(album => album.source !== 'beta-original')) throw new Error('This beta exports only original visuals. Please choose albums again in the beta selector.');
           const frame = state.frame === 'none' ? 0 : Math.round(width * state.frameInches * .035);
           const innerWidth = width - frame * 2, innerHeight = height - frame * 2;
           const available = state.mode === 'albums' ? state.albums.length : 60;
@@ -2077,8 +2109,8 @@
 
       if (friendBeta) {
         document.querySelector('.manual-cover').hidden = true;
-        document.querySelector('.picker-credit').innerHTML = 'Album data from <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · cover previews from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a> · wall and downloads use original visuals';
-        document.querySelector('.spotify-note')?.replaceChildren(document.createTextNode('Spotify connection is available to approved testers only and has not yet passed a live-account test. Imported album names reflect your listening data; beta wall tiles and downloads use original visuals.'));
+        document.querySelector('.picker-credit').innerHTML = 'Album data from <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · cover previews from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a> · cover-art downloads paused in beta';
+        document.querySelector('.spotify-note')?.replaceChildren(document.createTextNode('Spotify connection is available to approved testers only. Imported albums display Spotify cover previews when available. Album-cover downloads are paused in this beta.'));
       }
 
       $('applyAlbums').addEventListener('click', () => {

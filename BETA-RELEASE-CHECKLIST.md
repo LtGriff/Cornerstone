@@ -2,8 +2,8 @@
 
 ## Blockers for the full album-art / Spotify experience
 
-- Real Spotify authorization and import remain **NOT VERIFIED**. The owner reports Premium is restored, but the Dashboard configuration and approved-account flow have not been checked here. The shared beta now offers Spotify sign-in to approved testers with an explicit unverified warning; do not claim it works until consent, import, recommendations, cancellation, and reconnection pass.
-- Third-party artwork display, animation, bundled examples, uploads, and PNG redistribution need rights/platform review. The shared beta instead uses original generated visuals and does not package Tre's Picks screenshots or Apple chart artwork. The local development build retains the prior experience for work and review.
+- One approved account has reported a successful Spotify return with matching album names. The full authorization, recommendations, cancellation, and reconnection flow is **NOT VERIFIED**; Dashboard configuration has not been independently checked here.
+- Third-party artwork display, animation, bundled examples, uploads, and PNG redistribution need rights/platform review. The shared beta now shows static provider cover previews on the wall when available, but blocks album-cover PNG downloads. Color exports remain available. The local development build retains the prior experience for work and review.
 - A project-saving, credential, or privacy defect found during beta testing is a stop-ship issue. No tokens, project contents, images, or private listening data should enter feedback reports.
 
 ## Important
