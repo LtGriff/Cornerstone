@@ -843,6 +843,7 @@
       const $ = (id) => document.getElementById(id);
       const C = window.CornerstoneCore;
       const friendBeta = window.CornerstoneConfig?.release === 'friend-beta';
+      const classicArtwork = window.CornerstoneConfig?.artwork === 'classic';
       const SPOTIFY_CLIENT_ID = '3373b0d8342c4805b6662861c8f47427';
       const query = new URLSearchParams(window.location.search);
       const wallpaperMode = query.has('wallpaper');
@@ -886,6 +887,7 @@
       let rackLatestId = null;
       let rackFlight = null;
       let rackFlightAnimation = null;
+      let rackFlightTimer = null;
       let rackSettleAnimation = null;
       let rackMotionRevision = 0;
       let cornerAuraTimer = null;
@@ -990,12 +992,12 @@
         }
         tile.innerHTML = '<div class="tile-inner"><div class="face front"></div><div class="face back"></div></div>';
         const frontImage = new Image();
-        if (!friendBeta) frontImage.crossOrigin = 'anonymous';
+        if (!friendBeta || classicArtwork) frontImage.crossOrigin = 'anonymous';
         frontImage.draggable = false;
         frontImage.src = C.displayArt(album);
         frontImage.alt = `${album.title} by ${album.artist}`;
         const backImage = new Image();
-        if (!friendBeta) backImage.crossOrigin = 'anonymous';
+        if (!friendBeta || classicArtwork) backImage.crossOrigin = 'anonymous';
         backImage.draggable = false;
         backImage.src = C.displayArt(next);
         backImage.alt = `${next.title} by ${next.artist}`;
@@ -1013,9 +1015,9 @@
       function renderGrid({ wave = false, refreshBleed = false } = {}) {
         clearWallSelection();
         const grid = $('grid');
-        const providerPreview = friendBeta && state.mode === 'albums' && state.albums.some(album => album.previewThumb || album.previewArt);
+        const providerPreview = friendBeta && !classicArtwork && state.mode === 'albums' && state.albums.some(album => album.previewThumb || album.previewArt);
         document.documentElement.classList.toggle('provider-preview', providerPreview);
-        $('spotifyCredit').hidden = !(providerPreview && state.albums.some(album => album.metadataSource === 'spotify'));
+        $('spotifyCredit').hidden = !(friendBeta && state.mode === 'albums' && state.albums.some(album => album.metadataSource === 'spotify' || album.source === 'spotify'));
         if (providerPreview) wave = false;
         const shape = gridShape();
         state.count = shape.count;
@@ -1175,7 +1177,7 @@
           if (revision !== replacementRevision || !tile.isConnected) return;
           tile.querySelector('.front').replaceChildren();
           const image = new Image();
-          if (!friendBeta) image.crossOrigin = 'anonymous'; image.src = C.displayArt(album);
+          if (!friendBeta || classicArtwork) image.crossOrigin = 'anonymous'; image.src = C.displayArt(album);
           image.alt = `${album.title} by ${album.artist}`;
           image.addEventListener('error', () => { if(friendBeta&&!image.dataset.fallback&&C.displayArt(album)!==album.art){image.dataset.fallback='true';image.src=album.art;return;}image.hidden = true; tile.querySelector('.front').textContent = 'Cover unavailable'; });
           tile.querySelector('.front').append(image);
@@ -1354,7 +1356,7 @@
         $('fillNote').hidden = state.mode !== 'albums';
         $('albumTools').hidden = state.mode !== 'albums';
         $('albumSource').textContent = friendBeta && state.mode === 'albums' && state.albums.some(album=>album.metadataSource==='spotify'&&!album.previewThumb&&!album.previewArt) ? `${state.albums.length} albums saved. Reconnect Spotify to refresh covers for this older project.` : state.customAlbums ? `${state.albums.length} albums saved on this device.` : 'Current chart test set.';
-        $('albumExportNote').hidden = !(friendBeta && state.mode === 'albums');
+        $('albumExportNote').hidden = !(friendBeta && !classicArtwork && state.mode === 'albums');
       }
 
       function flipOne() {
@@ -1503,6 +1505,7 @@
       const draftSignature = () => `${draftAlbums.map(C.identity).join('|')}::${draftCornerSlots.map(album => album ? C.identity(album) : '').join('|')}`;
       function cancelRackAnimation() {
         ++rackMotionRevision;
+        clearTimeout(rackFlightTimer); rackFlightTimer = null;
         rackFlightAnimation?.cancel(); rackSettleAnimation?.cancel();
         rackFlight?.remove();
         rackFlight = rackFlightAnimation = rackSettleAnimation = null;
@@ -1532,7 +1535,7 @@
       }
       function animateSelection(source, cornerPosition = null) {
         cancelRackAnimation();
-        if (friendBeta) return;
+        if (friendBeta && !classicArtwork) return;
         const corner = cornerPosition === null ? null : $('cornerSlots').querySelectorAll('button')[cornerPosition];
         const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (corner && !reduced) {
@@ -1558,14 +1561,19 @@
             { transform:`translate(${dx}px,${dy - 11}px) scale(${scale})`, opacity:1, offset:.78 },
             { transform:`translate(${dx}px,${dy}px) scale(${scale * .94})`, opacity:.92, offset:1 }
           ], { duration:430, easing:'cubic-bezier(.22,.7,.22,1)', fill:'forwards' });
-          rackFlightAnimation.finished.then(() => {
-            if (revision !== rackMotionRevision || !dialog.open) return;
+          let finished = false;
+          const finishFlight = () => {
+            if (finished || revision !== rackMotionRevision || !dialog.open) return;
+            finished = true;
+            clearTimeout(rackFlightTimer); rackFlightTimer = null;
             flight.remove(); rackFlight = rackFlightAnimation = null;
             const settling = corner || rack;
             settling.classList.add('is-settling');
             rackSettleAnimation = settling.animate([{ transform:'translateY(-2px)' },{ transform:'translateY(1px)' },{ transform:'translateY(0)' }], { duration:85, easing:'ease-out' });
             rackSettleAnimation.finished.finally(() => { if (revision === rackMotionRevision) { settling.classList.remove('is-settling'); rackSettleAnimation = null; } }).catch(() => {});
-          }).catch(() => { if (revision === rackMotionRevision) cancelRackAnimation(); });
+          };
+          rackFlightTimer = setTimeout(finishFlight, 700);
+          rackFlightAnimation.finished.then(finishFlight).catch(() => { if (!finished && revision === rackMotionRevision) cancelRackAnimation(); });
         } catch (_) { cancelRackAnimation(); }
       }
       function closeSelectedCollection() {
@@ -1676,12 +1684,12 @@
           card.setAttribute('aria-pressed', String(selected));
           if (selectedIndex >= 0) card.dataset.pick = selectedCorner >= 0 ? `Corner ${selectedCorner + 1}` : `${selectedIndex + 1}`;
           const image = new Image();
-          if (!friendBeta) image.crossOrigin = 'anonymous';
+          if (!friendBeta || classicArtwork) image.crossOrigin = 'anonymous';
           image.alt = '';
           image.loading = 'lazy'; image.decoding = 'async';
           image.addEventListener('error', async () => {
             image.hidden=true;
-            if (friendBeta) return;
+            if (friendBeta && !classicArtwork) return;
             if (!album.artworkUnavailable && album.source === 'musicbrainz') {
               try {
                 const found=await C.resolveArtwork(album);
@@ -1694,7 +1702,7 @@
             album.artworkUnavailable=true;
             if (card.isConnected) { card.classList.add('missing-art'); card.title='Artwork unavailable. You can upload a cover below.'; }
           }, { once: true });
-          if (friendBeta) {
+          if (friendBeta && !classicArtwork) {
             image.src=album.thumb;
             if (album.previewThumb) {
               const loadPreview=url=>{const preview=new Image();preview.onload=()=>{if(card.isConnected)image.src=url;};preview.onerror=()=>{};preview.src=url;return preview;};
@@ -1719,7 +1727,7 @@
               renderAlbumResults();
               return;
             }
-            const before = draftSignature(), previewSource = rackSource(image), source = friendBeta && previewSource ? {...previewSource,src:album.thumb} : previewSource, cornerPosition = cornerstoneTarget === null ? draftCornerSlots.findIndex(choice => !choice) : cornerstoneTarget;
+            const before = draftSignature(), previewSource = rackSource(image), source = friendBeta && !classicArtwork && previewSource ? {...previewSource,src:album.thumb} : previewSource, cornerPosition = cornerstoneTarget === null ? draftCornerSlots.findIndex(choice => !choice) : cornerstoneTarget;
             const existing = draftAlbums.findIndex((choice) => C.identity(choice) === C.identity(album));
             if (cornerstoneTarget !== null) placeCornerstone(album);
             else if (existing >= 0) removeDraftAlbum(album);
@@ -1782,7 +1790,7 @@
           albumSearchResults=results;
           $('albumResults').classList.remove('artist-results');
           renderAlbumResults();
-          $('albumSearchStatus').textContent=results.length ? (friendBeta ? `Albums by ${artist.name}. Covers arrive as they load; cover-art downloads are paused in beta.` : `Albums by ${artist.name}. Covers arrive as they load.`) : (friendBeta ? 'No albums found. Try another artist or search again later.' : 'No albums found. You can upload a cover below.');
+          $('albumSearchStatus').textContent=results.length ? `Albums by ${artist.name}. Covers arrive as they load.` : (friendBeta && !classicArtwork ? 'No albums found. Try another artist or search again later.' : 'No albums found. You can upload a cover below.');
         } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
       }
       async function loadMoreArtistAlbums() {
@@ -1801,6 +1809,7 @@
       }
 
       function openPicker(albums, cornerIndices, options = {}) {
+        clearTimeout(pickerCloseTimer);
         window.CornerstoneStudio?.cancelReveal();
         cancelRackAnimation();
         closeSelectedCollection();
@@ -1880,7 +1889,7 @@
         renderAlbumResults();
       });
       $('albumSearchForm').addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchDebounce);void searchArtists();});
-      $('albumDialog').addEventListener('close',()=>{cancelRackAnimation();clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;replacementTarget=replacementCandidate=null;$('applyAlbums').hidden=false;$('confirmReplacement').hidden=true;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
+      $('albumDialog').addEventListener('close',()=>{if($('albumDialog').open)return;cancelRackAnimation();clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;replacementTarget=replacementCandidate=null;$('applyAlbums').hidden=false;$('confirmReplacement').hidden=true;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
 
       async function manualArtworkData(file) {
         const url = URL.createObjectURL(file);
@@ -1903,7 +1912,7 @@
 
       $('manualAlbumForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        if (friendBeta) { $('albumSearchStatus').textContent = 'Artwork uploads are unavailable in this shared beta. Search an artist to use an original visual instead.'; return; }
+        if (friendBeta && !classicArtwork) { $('albumSearchStatus').textContent = 'Artwork uploads are unavailable in this shared beta. Search an artist to use an original visual instead.'; return; }
         const file = $('manualArtwork').files?.[0];
         if (!file || (draftAlbums.length >= 60 && cornerstoneTarget === null && !replacementTarget)) return;
         $('albumSearchStatus').textContent = 'Preparing your cover…';
@@ -2056,7 +2065,7 @@
       }
 
       async function saveWallpaper(button, width, height, label) {
-        if (friendBeta && state.mode === 'albums') {
+        if (friendBeta && !classicArtwork && state.mode === 'albums') {
           alert('Album-cover downloads are paused in this beta while artwork permissions are reviewed. Your wall and saved project are unaffected. Color wallpapers are still downloadable.');
           return;
         }
@@ -2108,9 +2117,9 @@
       $('saveDesktop').addEventListener('click', () => saveWallpaper($('saveDesktop'), 3840, 2160, 'desktop'));
 
       if (friendBeta) {
-        document.querySelector('.manual-cover').hidden = true;
-        document.querySelector('.picker-credit').innerHTML = 'Album data from <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · cover previews from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a> · cover-art downloads paused in beta';
-        document.querySelector('.spotify-note')?.replaceChildren(document.createTextNode('Spotify connection is available to approved testers only. Imported albums display Spotify cover previews when available. Album-cover downloads are paused in this beta.'));
+        document.querySelector('.manual-cover').hidden = !classicArtwork;
+        document.querySelector('.picker-credit').innerHTML = classicArtwork ? 'Album data from <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · artwork from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a>. Artwork rights remain under review.' : 'Album data from <a href="https://musicbrainz.org" target="_blank" rel="noreferrer">MusicBrainz</a> · cover previews from <a href="https://coverartarchive.org" target="_blank" rel="noreferrer">Cover Art Archive</a> · cover-art downloads paused in beta';
+        document.querySelector('.spotify-note')?.replaceChildren(document.createTextNode(classicArtwork ? 'Spotify connection is available to approved testers only. Imported albums use matching covers. Artwork rights remain under review.' : 'Spotify connection is available to approved testers only. Imported albums display Spotify cover previews when available. Album-cover downloads are paused in this beta.'));
       }
 
       $('applyAlbums').addEventListener('click', () => {

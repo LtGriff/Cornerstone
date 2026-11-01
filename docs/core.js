@@ -4,8 +4,15 @@
   const normal = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*(?:deluxe|remaster|expanded|anniversary|edition|explicit|clean)[^)]*\)|\[[^\]]*(?:deluxe|remaster|edition)[^\]]*\]/g, '').replace(/\s*[-–—:]\s*(?:deluxe|expanded|remaster(?:ed)?|anniversary|special|bonus)\b.*$/i,'').replace(/[^a-z0-9]/g, '');
   const identity = a => `${normal(a.artist)}:${normal(a.title)}`;
   const friendBeta = () => root.CornerstoneConfig?.release === 'friend-beta';
-  // Keep original art as a fallback; provider covers are display-only previews, never exports.
+  const classicArtwork = () => root.CornerstoneConfig?.artwork === 'classic';
+  // Preserve both saved beta previews and the original classic-artwork path.
   function betaAlbum(album) {
+    if (classicArtwork()) {
+      const art=album.previewArt||album.art;
+      const thumb=album.previewThumb||album.previewArt||album.thumb||art;
+      return {...album,art,thumb,source:album.metadataSource||album.source,
+        color:album.source==='beta-original'&&album.previewArt?undefined:album.color};
+    }
     const name=identity(album), hash=[...name].reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619)>>>0,2166136261);
     const hue=hash%360, color=[0,1,2].map((_,i)=>Math.round((Math.sin((hue+i*75)*Math.PI/180)+1)*63+55));
     const xml=value=>String(value||'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[character]));
@@ -23,7 +30,7 @@
     const previewArt=album.previewArt||(catalogAlbum ? (album.source==='musicbrainz'?album.art:null)||(catalogId?`https://coverartarchive.org/release-group/${catalogId}/front-500`:undefined) : spotifyAlbum&&album.source==='spotify'?album.art:undefined);
     return {...album,art,thumb:art,previewThumb,previewArt,color,source:'beta-original',metadataSource:album.metadataSource||album.source||'manual'};
   }
-  const displayArt = album => friendBeta() ? album.previewThumb||album.previewArt||album.art : album.art;
+  const displayArt = album => friendBeta()&&!classicArtwork() ? album.previewThumb||album.previewArt||album.art : album.art;
   function unique(items, limit = 60) {
     const ids = new Set(), names = new Set(), arts = new Set();
     return items.filter(a => {
@@ -176,8 +183,8 @@
       .sort((a,b)=>Number(plain(a.title)!==plain(album.title))-Number(plain(b.title)!==plain(album.title))||Number(a['cover-art-archive']?.front!==true)-Number(b['cover-art-archive']?.front!==true)||String(a.date||'').localeCompare(String(b.date||''))).slice(0,6);
   }
   async function resolveArtwork(album,signal){
-    const previewOnly=friendBeta()&&album.metadataSource==='musicbrainz';
-    if((friendBeta()&&!previewOnly)||(!previewOnly&&album.source!=='musicbrainz')||!album.id)return null;
+    const previewOnly=friendBeta()&&!classicArtwork()&&album.metadataSource==='musicbrainz';
+    if((friendBeta()&&!classicArtwork()&&!previewOnly)||(!previewOnly&&album.source!=='musicbrainz')||!album.id)return null;
     if(!artworkJobs.has(album.id))artworkJobs.set(album.id,(async()=>{
       const key='artwork:'+album.id,stored=await get(key).catch(()=>null);
       if(stored&&Date.now()-stored.time<(stored.art?2592000000:21600000))return stored.art?stored:null;

@@ -3,20 +3,20 @@
 ## Blockers for the full album-art / Spotify experience
 
 - One approved account has reported a successful Spotify return with matching album names. The full authorization, recommendations, cancellation, and reconnection flow is **NOT VERIFIED**; Dashboard configuration has not been independently checked here.
-- Third-party artwork display, animation, bundled examples, uploads, and PNG redistribution need rights/platform review. The shared beta now shows static provider cover previews on the wall when available, but blocks album-cover PNG downloads. Color exports remain available. The local development build retains the prior experience for work and review.
+- Third-party artwork display, animation, bundled examples, uploads, and PNG redistribution still need rights/platform review. The friend beta restores the earlier moving cover wall and album-cover PNG downloads at the owner's request. This is not permission from Spotify or artwork owners; noncommercial use does not remove those restrictions. Do not describe the artwork use as cleared.
 - A project-saving, credential, or privacy defect found during beta testing is a stop-ship issue. No tokens, project contents, images, or private listening data should enter feedback reports.
 
 ## Important
 
 - Test actual Chrome, Firefox, Edge, iPhone Safari, and Android Chrome before claiming cross-browser support. A desktop browser's phone-size viewport is not a physical-device test.
 - MusicBrainz requests currently come directly from the browser. Its application-specific User-Agent expectation cannot be reliably met by cross-origin browser fetch; provider reliability needs review or a narrowly scoped proxy.
-- Cover Art Archive currently returns server errors for some known albums. The picker attempts real cover previews and falls back immediately to named original visuals; provider recovery is outside Cornerstone's control.
+- Cover Art Archive currently returns server errors for some known albums. The picker attempts real covers; provider recovery is outside Cornerstone's control, and failed images can prevent an export.
 - Check catalog quality, 390px mobile usability, picker scrolling, keyboard/touch swapping, color inputs, resume, and both export sizes with real testers.
 - Confirm exact GitHub Pages casing `/Cornerstone/` and no missing assets or development-only controls after each deployment.
 
 ## Minor
 
-- Refine the original-visual examples based on feedback.
+- Confirm that the restored example wallpapers can be displayed publicly; bundled album artwork has the same unresolved rights issue.
 - Improve feedback handoff when a deliberate submission channel is selected. The current beta only creates a copyable note and sends nothing automatically.
 
 ## Spotify owner setup for later (not live-tested)
