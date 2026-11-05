@@ -246,13 +246,26 @@
   $('projectFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>30000000)throw Error('This project file is too large.');const data=validateProject(JSON.parse(await file.text()));Object.assign(A.state,data.state);setIntensity(data.outerIntensity);draft=A.state.albums.slice();draftCornerIndices=null;A.setRackLatestId(data.rackLatestId);importData=null;enterEditor();toast('Project opened.');}catch(err){toast(err.message);}e.target.value='';};
   document.querySelector('.controls').addEventListener('input',changed);document.querySelector('.controls').addEventListener('click',changed);
   document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelReveal();void save();}});
-  window.CornerstoneStudio={changed,draftChanged,save,enterEditor,drawFrame,startReveal,cancelReveal,updateManualControls,updateColorControls,importProgress:count=>{const el=$('importProgress');if(el)el.textContent=`${count} unique albums found…`;},imported:async result=>{recommendationController?.abort();++recommendationRevision;importData=result;dismissed=new Set();draft=result.albums.slice();draftCornerIndices=null;activeDraft=false;A.state.detail=5;await save();void gradient(draft);recommendationScreen();if(result.albums.length<60&&!result.pools?.some(p=>p.length))void loadCatalogSuggestions();},importFailed:message=>{connect();toast(message);}};
+  window.CornerstoneStudio={changed,draftChanged,save,enterEditor,drawFrame,startReveal,cancelReveal,updateManualControls,updateColorControls,
+    importProgress:count=>{const el=$('importProgress');if(el)el.textContent=`${count} unique albums found…`;},
+    restoreProgress:(count,total)=>{const el=$('importProgress');if(el)el.textContent=`Restored ${count} of ${total} saved covers…`;},
+    artworkRestored:async result=>{
+      const byId=new Map(result.albums.map(album=>[album.id,album]));
+      A.state.albums=result.albums;
+      if(draft)draft=draft.map(album=>byId.get(album.id)||album);
+      if(importData){importData.albums=(importData.albums||[]).map(album=>byId.get(album.id)||album);importData.pools=(importData.pools||[]).map(pool=>pool.map(album=>byId.get(album.id)||album));}
+      enterEditor();await save();
+      toast(result.remaining?`${result.restored} covers restored; ${result.remaining} still need a cover. ${result.limitReason?'Try again later.':'You can retry.'}`:`${result.restored} saved covers restored. Your wall layout is unchanged.`);
+    },
+    restoreFailed:message=>{enterEditor();toast(message);},
+    imported:async result=>{recommendationController?.abort();++recommendationRevision;importData=result;dismissed=new Set();draft=result.albums.slice();draftCornerIndices=null;activeDraft=false;A.state.detail=5;await save();void gradient(draft);recommendationScreen();if(result.albums.length<60&&!result.pools?.some(p=>p.length))void loadCatalogSuggestions();},
+    importFailed:message=>{connect();toast(message);}};
   async function boot(){
     try{const project=await C.get(projectKey);if(project?.version===3){Object.assign(A.state,project.state);A.state.albums=C.unique((A.state.albums||[]).map(a=>friendBeta?C.betaAlbum(a):a));A.state.cornerColorMode=A.state.cornerColorMode==='custom'?'custom':'automatic';A.state.cornerColorOverrides=Array.from({length:4},(_,i)=>C.validColorHex(A.state.cornerColorOverrides?.[i])?A.state.cornerColorOverrides[i].toLowerCase():null);if(Number.isFinite(project.outerIntensity))setIntensity(project.outerIntensity);draft=friendBeta?project.draft?.map(C.betaAlbum):project.draft;draftCornerIndices=Array.isArray(project.draftCornerIndices)&&project.draftCornerIndices.length===4&&project.draftCornerIndices.every(index=>Number.isInteger(index)&&index>=-1&&index<(draft?.length||0))&&new Set(project.draftCornerIndices.filter(index=>index>=0)).size===project.draftCornerIndices.filter(index=>index>=0).length?project.draftCornerIndices:null;A.setRackLatestId(project.rackLatestId);activeDraft=project.activeDraft;importData=project.importData;if(friendBeta&&importData){importData.albums=(importData.albums||[]).map(C.betaAlbum);importData.pools=(importData.pools||[]).map(pool=>pool.map(C.betaAlbum));}dismissed=new Set(project.dismissed||[]);hasProject=true;}else if(A.state.customAlbums){A.state.albums=C.unique(A.state.albums);A.state.mode='albums';hasProject=true;}}catch(_){$('saveStatus').textContent='Browser storage is unavailable. Use Save project file to keep a copy.';}
     ready=true;
     if(A.wallpaperMode){document.body.classList.remove('onboarding');document.querySelector('.app').inert=false;A.renderGrid();return;}
     const callback=new URLSearchParams(location.search);
-    if(callback.has('code')||callback.has('error')){show('<p class="eyebrow">Spotify → Cornerstone</p><h2 tabindex="-1">Gathering your albums.</h2><p class="subtitle" id="importProgress">Reading your selected listening periods…</p>');await A.finishSpotifyImport();if(callback.has('error')){connect();toast('Spotify connection was cancelled.');}}
+    if(callback.has('code')||callback.has('error')){show('<p class="eyebrow">Spotify → Cornerstone</p><h2 tabindex="-1">Gathering your albums.</h2><p class="subtitle" id="importProgress">Reading your selected listening periods…</p>');const handled=await A.finishSpotifyImport();if(callback.has('error')&&!handled){connect();toast('Spotify connection was cancelled.');}}
     else landing();
   }
   void boot();

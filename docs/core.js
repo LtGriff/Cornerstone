@@ -5,6 +5,9 @@
   const identity = a => `${normal(a.artist)}:${normal(a.title)}`;
   const friendBeta = () => root.CornerstoneConfig?.release === 'friend-beta';
   const classicArtwork = () => root.CornerstoneConfig?.artwork === 'classic';
+  const needsSpotifyArtwork = album => /^spotify-[A-Za-z0-9]{22}$/.test(album?.id||'') &&
+    (album.metadataSource==='spotify'||album.source==='spotify'||album.source==='beta-original') &&
+    !/^https:\/\//.test(album.previewArt||album.art||'');
   // Preserve both saved beta previews and the original classic-artwork path.
   function betaAlbum(album) {
     if (classicArtwork()) {
@@ -226,6 +229,35 @@
   }
   async function analyzeAll(items){let i=0;await Promise.all(Array.from({length:4},async()=>{while(i<items.length)await analyze(items[i++]);}));return items;}
   function spotifyAlbum(a){const images=a.images||[];return {id:'spotify-'+a.id,title:a.name,artist:(a.artists||[]).map(x=>x.name).join(' & '),artistIds:a.artists||[],year:a.release_date?.slice(0,4),art:images[0]?.url,thumb:images.find(x=>x.width>=250&&x.width<500)?.url||images[0]?.url,url:a.external_urls?.spotify,source:'spotify',provenance:'history'};}
+  async function restoreSpotifyArtwork(token,albums,onProgress=()=>{},request=fetch){
+    const updated=albums.slice(),pending=updated.map((album,index)=>needsSpotifyArtwork(album)?index:-1).filter(index=>index>=0);
+    let restored=0,failed=0,limitReason=null;
+    for(const index of pending){
+      const previous=updated[index],id=previous.id.slice('spotify-'.length);
+      try{
+        let response;
+        for(let attempt=0;attempt<2;attempt++){
+          response=await request(`https://api.spotify.com/v1/albums/${encodeURIComponent(id)}`,{headers:{Authorization:'Bearer '+token}});
+          if(response.status!==429||attempt)break;
+          const seconds=Number(response.headers?.get?.('Retry-After'));
+          if(!Number.isFinite(seconds)||seconds<0||seconds>15)break;
+          await wait(seconds*1000);
+        }
+        if(!response.ok){
+          failed++;
+          if([401,403,429].includes(response.status)){limitReason=response.status===429?'rate_limit':response.status===401?'auth':'access';break;}
+          continue;
+        }
+        const album=await response.json(),cover=spotifyAlbum(album);
+        if(!cover.art||cover.id!==previous.id){failed++;continue;}
+        updated[index]={...previous,art:cover.art,thumb:cover.thumb,previewArt:cover.art,previewThumb:cover.thumb,
+          source:'spotify',metadataSource:'spotify',url:cover.url||previous.url,color:undefined};
+        restored++;
+      }catch(_){failed++;limitReason='service';break;}
+      onProgress(restored,pending.length);
+    }
+    return {albums:updated,restored,failed,remaining:pending.length-restored,limitReason};
+  }
   async function importSpotify(token,range,otherRanges=true,onProgress=()=>{},request=fetch){
     const headers={Authorization:'Bearer '+token};let collection=[],trackIds=new Set(),weights=new Map(),pages=0,artistPages=0,missingArtwork=0,limitReason=null;
     const read=async url=>{
@@ -262,6 +294,6 @@
     const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
     return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify};
+  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify,needsSpotifyArtwork,restoreSpotifyArtwork};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

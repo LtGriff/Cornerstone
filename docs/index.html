@@ -281,6 +281,7 @@
     .album-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 11px; }
     .album-tools[hidden] { display: none; }
     .album-tools .action { width: 100%; background: color-mix(in srgb, var(--accent) 24%, #242429); }
+    .album-tools #refreshAlbumCovers { grid-column: 1 / -1; }
 
     dialog {
       width: min(820px, calc(100vw - 28px));
@@ -659,6 +660,7 @@
         <div class="album-tools" id="albumTools" hidden>
           <button class="action" id="chooseAlbums" type="button">Choose your albums</button>
           <button class="action" id="connectSpotify" type="button">Connect Spotify</button>
+          <button class="action" id="refreshAlbumCovers" type="button" hidden>Restore saved album covers</button>
           <p class="spotify-note" style="grid-column:1 / -1; margin:2px 2px 0">Spotify sync is currently a private beta limited to five approved accounts. Everyone can still choose albums manually and save a wallpaper without connecting Spotify.</p>
         </div>
       </section>
@@ -1355,7 +1357,9 @@
         $('shuffle').textContent = state.mode === 'albums' ? 'Shuffle albums' : 'Shuffle colors';
         $('fillNote').hidden = state.mode !== 'albums';
         $('albumTools').hidden = state.mode !== 'albums';
-        $('albumSource').textContent = friendBeta && state.mode === 'albums' && state.albums.some(album=>album.metadataSource==='spotify'&&!album.previewThumb&&!album.previewArt) ? `${state.albums.length} albums saved. Reconnect Spotify to refresh covers for this older project.` : state.customAlbums ? `${state.albums.length} albums saved on this device.` : 'Current chart test set.';
+        const missingCovers=friendBeta&&classicArtwork&&state.mode==='albums'?state.albums.filter(C.needsSpotifyArtwork).length:0;
+        $('albumSource').textContent = missingCovers ? `${state.albums.length} albums saved. ${missingCovers} older Spotify covers can be restored without changing your layout.` : state.customAlbums ? `${state.albums.length} albums saved on this device.` : 'Current chart test set.';
+        $('refreshAlbumCovers').hidden=!missingCovers;
         $('albumExportNote').hidden = !(friendBeta && !classicArtwork && state.mode === 'albums');
       }
 
@@ -1964,13 +1968,17 @@
         return base64Url(new Uint8Array(digest));
       }
 
-      $('connectSpotify').addEventListener('click', () => {
+      let spotifyPurpose='import';
+      function openSpotifyDialog(purpose='import') {
+        spotifyPurpose=purpose;
         $('spotifyClientId').value = SPOTIFY_CLIENT_ID || localStorage.getItem('cornerstone-spotify-client-id') || '';
         $('spotifyClientIdField').hidden = Boolean(SPOTIFY_CLIENT_ID);
         $('spotifyRedirect').textContent = spotifyRedirectUri();
         $('spotifySetup').hidden = Boolean(SPOTIFY_CLIENT_ID);
         $('spotifyDialog').showModal();
-      });
+      }
+      $('connectSpotify').addEventListener('click', () => openSpotifyDialog());
+      $('refreshAlbumCovers').addEventListener('click', () => openSpotifyDialog('restore'));
 
       $('closeSpotifyDialog').addEventListener('click', () => $('spotifyDialog').close());
 
@@ -1986,6 +1994,7 @@
         localStorage.setItem('cornerstone-spotify-state', authState);
         localStorage.setItem('cornerstone-spotify-range', $('spotifyRange').value);
         localStorage.setItem('cornerstone-spotify-other-ranges', String($('spotifyOtherRanges').checked));
+        localStorage.setItem('cornerstone-spotify-purpose', spotifyPurpose);
         await window.CornerstoneStudio?.save();
         localStorage.setItem('cornerstone-spotify-redirect', redirectUri);
         const auth = new URL('https://accounts.spotify.com/authorize');
@@ -2010,11 +2019,13 @@
         const cleanUrl = new URL(location.href);
         ['code', 'state', 'error'].forEach((key) => cleanUrl.searchParams.delete(key));
         history.replaceState({}, '', cleanUrl);
-        const clearSpotifyAuth = () => ['cornerstone-spotify-verifier', 'cornerstone-spotify-state', 'cornerstone-spotify-redirect'].forEach((key) => localStorage.removeItem(key));
+        const restoring=localStorage.getItem('cornerstone-spotify-purpose')==='restore';
+        const clearSpotifyAuth = () => ['cornerstone-spotify-verifier', 'cornerstone-spotify-state', 'cornerstone-spotify-redirect', 'cornerstone-spotify-purpose'].forEach((key) => localStorage.removeItem(key));
         if (error) {
           clearSpotifyAuth();
           $('screenLabel').textContent = 'Spotify connection was cancelled';
-          return;
+          if(restoring)window.CornerstoneStudio?.restoreFailed('Cover refresh cancelled. Your wall is unchanged.');
+          return restoring;
         }
         const verifier = localStorage.getItem('cornerstone-spotify-verifier');
         const expectedState = localStorage.getItem('cornerstone-spotify-state');
@@ -2023,10 +2034,11 @@
         if (!verifier || !clientId || returnedState !== expectedState) {
           clearSpotifyAuth();
           $('screenLabel').textContent = 'Spotify connection could not be verified';
-          window.CornerstoneStudio?.importFailed('This Spotify sign-in expired or could not be verified. Please connect again.');
-          return;
+          const message='This Spotify sign-in expired or could not be verified. Please connect again.';
+          if(restoring)window.CornerstoneStudio?.restoreFailed(message);else window.CornerstoneStudio?.importFailed(message);
+          return restoring;
         }
-        $('screenLabel').textContent = 'Importing your Spotify albums…';
+        $('screenLabel').textContent = restoring?'Restoring your saved album covers…':'Importing your Spotify albums…';
         try {
           const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
             method: 'POST',
@@ -2035,6 +2047,11 @@
           });
           if (!tokenResponse.ok) throw new Error('Spotify token unavailable');
           const token = await tokenResponse.json();
+          if(restoring){
+            const restored=await C.restoreSpotifyArtwork(token.access_token,state.albums,(count,total)=>window.CornerstoneStudio?.restoreProgress(count,total));
+            await window.CornerstoneStudio?.artworkRestored(restored);
+            return true;
+          }
           const range = localStorage.getItem('cornerstone-spotify-range') || 'long_term';
           const result=await C.importSpotify(token.access_token,range,localStorage.getItem('cornerstone-spotify-other-ranges')!=='false',count=>window.CornerstoneStudio?.importProgress(count));
           if(!result.albums.length)throw new Error('Spotify did not return albums for this account. You can choose albums manually.');
@@ -2044,7 +2061,8 @@
 
         } catch (importError) {
           $('screenLabel').textContent = importError.message || 'Spotify import failed';
-          window.CornerstoneStudio?.importFailed(importError.message);
+          if(restoring)window.CornerstoneStudio?.restoreFailed(importError.message);else window.CornerstoneStudio?.importFailed(importError.message);
+          return restoring;
         } finally {
           clearSpotifyAuth();
         }
