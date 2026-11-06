@@ -442,3 +442,20 @@ html[data-theme=day] .beta-dialog select,html[data-theme=day] .beta-dialog texta
 html[data-theme=day] .beta-dialog button { color:#25313b; background:#dbe1e2; border-color:#67727b77; }
 body.wallpaper-mode .beta-dock,html:has(.screen:fullscreen) .beta-dock { display:none!important; }
 @media(max-width:600px){.beta-dock{left:12px;bottom:12px;gap:5px}.beta-dock button{padding:8px 10px;font-size:10px}}
+
+/* Phone wallpaper picker */
+.phone-picker { width:min(92vw,380px); max-height:82vh; padding:18px; border:1px solid var(--line); border-radius:24px; color:var(--ink); background:var(--panel); box-shadow:0 30px 80px #000a; }
+.phone-picker::backdrop { background:#000a; backdrop-filter:blur(6px); }
+.phone-picker[open] { display:flex; flex-direction:column; animation:panel-arrive .22s ease both; }
+.pp-head { display:grid; grid-template-columns:36px 1fr 36px; align-items:center; gap:8px; margin-bottom:14px; text-align:center; }
+.pp-head h2 { margin:0; font-size:1.05rem; letter-spacing:-.01em; }
+.pp-icon { width:36px; height:36px; border:0; border-radius:50%; background:#ffffff14; font-size:20px; line-height:1; cursor:pointer; }
+.pp-pills { display:grid; gap:12px; padding:6px 0 4px; }
+.pp-pills .glass-pill { width:100%; }
+.pp-list { display:grid; gap:6px; overflow-y:auto; padding-right:2px; -webkit-overflow-scrolling:touch; }
+.pp-item { min-height:46px; padding:0 16px; border:1px solid var(--line); border-radius:14px; background:var(--panel-2); text-align:left; cursor:pointer; }
+.pp-item:hover,.pp-item:focus-visible { background:#2a2a30; }
+.pp-note { margin:4px 0 14px; text-align:center; color:var(--muted); }
+html[data-theme=day] .phone-picker { color:#202833; background:#f6f7f8; }
+html[data-theme=day] .pp-item { background:#fff; }
+html[data-theme=day] .pp-icon { background:#0000000f; }
