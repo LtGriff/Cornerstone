@@ -2107,7 +2107,7 @@
             const arranged = arrangeWithCornerstones(state.albums, shape.count, shape.columns);
           const images = await Promise.all(arranged.map(async (album) => {
             try { return await exportImage(album.art); }
-            catch (_) { if(album.thumb && album.thumb!==album.art)try{return await exportImage(album.thumb);}catch(_){} throw new Error(`“${album.title}” could not be downloaded. Replace its cover or upload your own image, then save again.`); }
+            catch (_) { if(album.thumb && album.thumb!==album.art)try{return await exportImage(album.thumb);}catch(_){} return await exportImage(C.generatedCover(album).art); }
           }));
             images.forEach((image, index) => drawCover(context, image, frame + (index % shape.columns) * cellWidth, frame + Math.floor(index / shape.columns) * cellHeight, cellWidth + .5, cellHeight + .5));
           } else {
