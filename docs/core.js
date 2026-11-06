@@ -8,14 +8,8 @@
   const needsSpotifyArtwork = album => /^spotify-[A-Za-z0-9]{22}$/.test(album?.id||'') &&
     (album.metadataSource==='spotify'||album.source==='spotify'||album.source==='beta-original') &&
     !/^https:\/\//.test(album.previewArt||album.art||'');
-  // Preserve both saved beta previews and the original classic-artwork path.
-  function betaAlbum(album) {
-    if (classicArtwork()) {
-      const art=album.previewArt||album.art;
-      const thumb=album.previewThumb||album.previewArt||album.thumb||art;
-      return {...album,art,thumb,source:album.metadataSource||album.source,
-        color:album.source==='beta-original'&&album.previewArt?undefined:album.color};
-    }
+  // Styled stand-in cover built from the title/artist; used when real artwork can't load.
+  function generatedCover(album) {
     const name=identity(album), hash=[...name].reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619)>>>0,2166136261);
     const hue=hash%360, color=[0,1,2].map((_,i)=>Math.round((Math.sin((hue+i*75)*Math.PI/180)+1)*63+55));
     const xml=value=>String(value||'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[character]));
@@ -26,6 +20,17 @@
     const artistText=xml(String(album.artist||'Artist').trim().slice(0,32));
     const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="hsl(${hue} 48% 48%)"/><stop offset="1" stop-color="hsl(${(hue+95)%360} 50% 20%)"/></linearGradient><linearGradient id="shade" x2="0" y2="1"><stop stop-color="#00000000"/><stop offset="1" stop-color="#000000ac"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/><circle cx="${130+hash%260}" cy="${160+(hash>>>8)%240}" r="195" fill="none" stroke="#ffffff6b" stroke-width="56"/><path d="M-60 ${230+(hash>>>16)%170} Q 260 15 670 400" fill="none" stroke="#ffffff42" stroke-width="75"/><circle cx="470" cy="470" r="60" fill="#ffffff55"/><rect y="300" width="600" height="300" fill="url(#shade)"/><g fill="#fff" font-family="Arial, sans-serif">${titleText}<text x="46" y="563" font-size="23" font-weight="600" letter-spacing="2">${artistText}</text></g></svg>`;
     const art='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    return {art,color};
+  }
+  // Preserve both saved beta previews and the original classic-artwork path.
+  function betaAlbum(album) {
+    if (classicArtwork()) {
+      const art=album.previewArt||album.art;
+      const thumb=album.previewThumb||album.previewArt||album.thumb||art;
+      return {...album,art,thumb,source:album.metadataSource||album.source,
+        color:album.source==='beta-original'&&album.previewArt?undefined:album.color};
+    }
+    const {art,color}=generatedCover(album);
     const catalogAlbum=album.metadataSource==='musicbrainz'||album.source==='musicbrainz';
     const spotifyAlbum=album.metadataSource==='spotify'||album.source==='spotify';
     const catalogId=catalogAlbum&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(album.id||'')?album.id:null;
@@ -294,6 +299,6 @@
     const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
     return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify,needsSpotifyArtwork,restoreSpotifyArtwork};
+  const api={generatedCover,normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify,needsSpotifyArtwork,restoreSpotifyArtwork};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

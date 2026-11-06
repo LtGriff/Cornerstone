@@ -1003,7 +1003,7 @@
         backImage.draggable = false;
         backImage.src = C.displayArt(next);
         backImage.alt = `${next.title} by ${next.artist}`;
-        [[frontImage,album],[backImage,next]].forEach(([image,item])=>{image.decoding='async';image.addEventListener('error',()=>{if(friendBeta&&!image.dataset.fallback&&C.displayArt(item)!==item.art){image.dataset.fallback='true';image.src=item.art;return;}image.hidden=true;const label=document.createElement('span');label.className='cover-fallback';label.textContent=image.alt+' · Cover unavailable';image.parentElement?.append(label);});});
+        [[frontImage,album],[backImage,next]].forEach(([image,item])=>{image.decoding='async';image.addEventListener('error',()=>{if(friendBeta&&!image.dataset.fallback&&C.displayArt(item)!==item.art){image.dataset.fallback='true';image.src=item.art;return;}if(!image.dataset.generated){image.dataset.generated='true';image.src=C.generatedCover(item).art;return;}image.hidden=true;const label=document.createElement('span');label.className='cover-fallback';label.textContent=image.alt+' · Cover unavailable';image.parentElement?.append(label);});});
         tile.querySelector('.front').append(frontImage);
         tile.querySelector('.back').append(backImage);
         prepareWave(tile, index, columns, rows, wave);
@@ -2082,7 +2082,7 @@
         context.drawImage(image, sx, sy, sw, sh, x, y, width, height);
       }
 
-      async function saveWallpaper(button, width, height, label) {
+      async function saveWallpaper(button, width, height, label, onBlob) {
         if (friendBeta && !classicArtwork && state.mode === 'albums') {
           alert('Album-cover downloads are paused in this beta while artwork permissions are reviewed. Your wall and saved project are unaffected. Color wallpapers are still downloadable.');
           return;
@@ -2118,6 +2118,7 @@
           }
           const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
           if (!blob) throw new Error('Wallpaper could not be created');
+          if (onBlob) { onBlob(blob, `cornerstone-${label}-${Date.now()}.png`); return; }
           const link = document.createElement('a');
           link.href = URL.createObjectURL(blob);
           link.download = `cornerstone-${label}-${Date.now()}.png`;
@@ -2131,7 +2132,66 @@
         }
       }
 
-      $('savePhone').addEventListener('click', () => saveWallpaper($('savePhone'), 1290, 2796, 'phone'));
+      // ---- Phone wallpaper picker: Apple / Android pills -> model list -> exact-size export ----
+      (() => {
+        const IPHONES = [
+          ['iPhone 18 Pro Max',1320,2868],['iPhone 18 Pro',1206,2622],['iPhone 17 Pro Max',1320,2868],['iPhone 17 Pro',1206,2622],
+          ['iPhone 17',1206,2622],['iPhone Air',1260,2736],['iPhone 17e',1170,2532],['iPhone 16 Pro Max',1320,2868],
+          ['iPhone 16 Pro',1206,2622],['iPhone 16 Plus',1290,2796],['iPhone 16',1179,2556],['iPhone 16e',1170,2532],
+          ['iPhone 15 Pro Max',1290,2796],['iPhone 15 Pro',1179,2556],['iPhone 15 Plus',1290,2796],['iPhone 15',1179,2556],
+          ['iPhone 14 Pro Max',1290,2796],['iPhone 14 Pro',1179,2556],['iPhone 14 Plus',1284,2778],['iPhone 14',1170,2532],
+          ['Another iPhone',1170,2532]
+        ];
+        const ANDROIDS = [
+          ['Galaxy S26 Ultra',1440,3120],['Galaxy S26+',1440,3120],['Galaxy S26',1080,2340],
+          ['Galaxy S25 Ultra',1440,3120],['Galaxy S25+',1440,3120],['Galaxy S25',1080,2340],
+          ['Pixel 10 Pro XL',1344,2992],['Pixel 10 Pro',1280,2856],['Pixel 10',1080,2424],['Pixel 10a',1080,2424],
+          ['Pixel 9 Pro XL',1344,2992],['Pixel 9 Pro',1280,2856],['Pixel 9',1080,2424],
+          ['Another Android (standard screen)',1080,2400],['Another Android (large screen)',1440,3120]
+        ];
+        const dlg = document.createElement('dialog');
+        dlg.className = 'phone-picker';
+        dlg.setAttribute('aria-label', 'Save phone wallpaper');
+        document.body.append(dlg);
+        let step = 'os', os = 'iphone', ready = null;
+        const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+        const head = (title, back) => `<div class="pp-head">${back ? '<button type="button" class="pp-icon" data-act="back" aria-label="Back">‹</button>' : '<span></span>'}<h2>${title}</h2><button type="button" class="pp-icon" data-act="close" aria-label="Close">×</button></div>`;
+        function render() {
+          if (step === 'os') dlg.innerHTML = head('Which phone do you have?') + '<div class="pp-pills"><button type="button" class="glass-pill" data-os="iphone">Apple</button><button type="button" class="glass-pill" data-os="android">Android</button></div>';
+          else if (step === 'models') {
+            const list = os === 'iphone' ? IPHONES : ANDROIDS;
+            dlg.innerHTML = head(os === 'iphone' ? 'Pick your iPhone' : 'Pick your Android', true) + `<div class="pp-list">${list.map((m, i) => `<button type="button" class="pp-item" data-i="${i}">${esc(m[0])}</button>`).join('')}</div>`;
+          } else if (step === 'building') dlg.innerHTML = head('Building your wallpaper…') + '<p class="pp-note" role="status">This takes a few seconds.</p>';
+          else dlg.innerHTML = head('Ready!') + `<p class="pp-note">Your wallpaper is sized for ${esc(ready.name)}.</p><div class="pp-pills"><button type="button" class="glass-pill" data-act="deliver">${matchMedia('(pointer:coarse)').matches ? 'Save to Photos' : 'Download'}</button></div>`;
+        }
+        async function deliver() {
+          const file = new File([ready.blob], ready.file, { type: 'image/png' });
+          if (matchMedia('(pointer:coarse)').matches && navigator.canShare?.({ files: [file] })) {
+            try { await navigator.share({ files: [file] }); dlg.close(); return; } catch (e) { if (e.name === 'AbortError') return; }
+          }
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(ready.blob); a.download = ready.file; a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+          dlg.close();
+        }
+        async function build(model) {
+          const [name, w, h] = model;
+          step = 'building'; render(); ready = null;
+          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          await saveWallpaper($('savePhone'), w, h, slug, (blob, file) => { ready = { blob, file, name }; });
+          step = ready ? 'ready' : 'models'; render();
+        }
+        dlg.addEventListener('click', e => {
+          if (e.target === dlg) return dlg.close();
+          const t = e.target.closest('button'); if (!t) return;
+          if (t.dataset.os) { os = t.dataset.os; step = 'models'; render(); }
+          else if (t.dataset.i !== undefined) { if (step === 'models') build((os === 'iphone' ? IPHONES : ANDROIDS)[+t.dataset.i]); }
+          else if (t.dataset.act === 'back') { step = 'os'; render(); }
+          else if (t.dataset.act === 'close') dlg.close();
+          else if (t.dataset.act === 'deliver') deliver();
+        });
+        $('savePhone').addEventListener('click', () => { step = 'os'; ready = null; render(); dlg.showModal(); });
+      })();
       $('saveDesktop').addEventListener('click', () => saveWallpaper($('saveDesktop'), 3840, 2160, 'desktop'));
 
       if (friendBeta) {
