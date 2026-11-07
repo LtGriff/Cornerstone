@@ -174,6 +174,24 @@
     visible.nextOffset=offset;
     return visible;
   }
+  // Build the same record shape albums() produces, for one MusicBrainz release group.
+  function releaseRecord(g,artistName,artistId,year){
+    const a={id:g.id,title:g.title,artist:artistName,artistId,year:year||g['first-release-date']?.slice(0,4),category:'albums',releaseType:'Album',art:`https://coverartarchive.org/release-group/${g.id}/front-500`,thumb:`https://coverartarchive.org/release-group/${g.id}/front-250`,url:`https://musicbrainz.org/release-group/${g.id}`,source:'musicbrainz'};
+    return friendBeta()?betaAlbum(a):a;
+  }
+  // Resolve a hand-picked "Artist - Title" (Browse tab) to a catalog album. Uses the shared rate-limited,
+  // cached MusicBrainz queue, so repeat views cost nothing.
+  async function lookupAlbum(artist,title,signal,year){
+    const clean=text=>String(text).replace(/["\\]/g,'');
+    const data=await catalog('https://musicbrainz.org/ws/2/release-group/?query='+encodeURIComponent(`releasegroup:"${clean(title)}" AND artist:"${clean(artist)}"`)+'&fmt=json&limit=8',signal);
+    const wantTitle=normal(title), wantArtist=normal(String(artist).split(/\s*(?:&| and |,|feat\.)\s*/i)[0]);
+    const matches=(data['release-groups']||[]).map(g=>{const credit=(g['artist-credit']||[])[0];return {g,credit};}).filter(({g,credit})=>{
+      const t=normal(g.title),a=normal((g['artist-credit']||[]).map(c=>c.name).join(' '));
+      return t&&a&&(t===wantTitle||t.includes(wantTitle)||wantTitle.includes(t))&&(a.includes(wantArtist)||wantArtist.includes(a));
+    }).sort((x,y)=>((x.g['secondary-types']||[]).length-(y.g['secondary-types']||[]).length)||(Number(y.g.score)||0)-(Number(x.g.score)||0));
+    const best=matches[0];
+    return best?releaseRecord(best.g,best.credit?.name||artist,best.credit?.artist?.id,year):null;
+  }
   const imageCache=new Map();
   function loadImage(url){
     const cached=imageCache.get(url);
@@ -299,6 +317,6 @@
     const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
     return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={generatedCover,normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify,needsSpotifyArtwork,restoreSpotifyArtwork};
+  const api={generatedCover,lookupAlbum,releaseRecord,normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify,needsSpotifyArtwork,restoreSpotifyArtwork};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

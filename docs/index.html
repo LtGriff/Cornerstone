@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b0b0d">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Cornerstone">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="description" content="Turn favorite albums or colors into a living wall anchored by four permanent cornerstones.">
   <title>Cornerstone</title>
   <script src="beta-config.js"></script>
@@ -627,6 +633,7 @@
     }
   </style>
   <link rel="stylesheet" href="studio.css">
+  <link rel="stylesheet" href="puzzle.css">
 </head>
 <body class="onboarding">
   <div id="outerWebsiteFrame" class="outer-website-frame" aria-hidden="true"></div>
@@ -711,6 +718,8 @@
         <button class="action primary" id="fullscreen" type="button">View full screen</button>
         <button class="action" id="savePhone" type="button">Save phone wallpaper</button>
         <button class="action" id="saveDesktop" type="button">Save desktop wallpaper</button>
+        <button class="action" id="puzzleBtn" type="button">Play the puzzle</button>
+        <button class="action" id="installApp" type="button" hidden>Install app</button>
       </div>
       <p class="tip" id="albumExportNote" hidden>Album-cover downloads are paused in this beta. Color wallpapers can still be saved.</p>
     </section>
@@ -735,17 +744,37 @@
     </section>
   </main>
 
+  <dialog class="phone-picker" id="installDialog" aria-label="Add Cornerstone to your Home Screen">
+    <div class="pp-head"><span></span><h2>Add to Home Screen</h2><button type="button" class="pp-icon" id="installClose" aria-label="Close">×</button></div>
+    <ol class="install-steps">
+      <li>Tap the <strong>Share</strong> button <span aria-hidden="true">(the square with an arrow)</span> in Safari’s toolbar.</li>
+      <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+      <li>Tap <strong>Add</strong>. Open Cornerstone from your Home Screen for true full screen.</li>
+    </ol>
+  </dialog>
+
   <dialog id="albumDialog" aria-labelledby="albumDialogTitle">
     <div class="picker-shell">
       <div class="picker-head">
         <button class="picker-back" id="backAlbumDialog" type="button" aria-label="Back to Cornerstone"><span aria-hidden="true">←</span><span>Back</span></button>
         <div>
           <h2 id="albumDialogTitle" tabindex="-1">Choose your albums</h2>
-          <p>Find an artist. Pick the albums that feel like you.</p>
+          <p>Browse popular albums or search any artist.</p>
         </div>
         <button class="dialog-close" id="closeAlbumDialog" type="button" aria-label="Close">×</button>
       </div>
-      <div class="picker-main">
+      <div class="picker-main" data-tab="browse">
+        <div class="picker-tabs-row">
+          <div class="picker-tabs" id="pickerTabs" role="tablist" aria-label="How to find albums">
+            <button type="button" role="tab" id="tabBrowse" aria-selected="true" data-tab="browse">Browse</button>
+            <button type="button" role="tab" id="tabSearch" aria-selected="false" data-tab="search">Search</button>
+          </div>
+          <button class="fill-pill" id="fillRest" type="button" aria-label="Auto-fill the rest of my wall" hidden>✦ Auto-fill</button>
+        </div>
+        <section class="browse-panel" aria-label="Browse popular albums">
+          <div class="browse-genres" id="browseGenres" role="group" aria-label="Genre"></div>
+          <div class="browse-years" id="browseYears" role="group" aria-label="Year"></div>
+        </section>
         <form class="album-search" id="albumSearchForm">
           <input id="albumSearch" type="search" placeholder="Try “SZA” or “Drake”" autocomplete="off" aria-label="Search artists" required>
           <button class="action" type="submit">Find artist</button>
@@ -1014,6 +1043,22 @@
         return C.arrange(items, count, columns, state.mode === 'albums' ? state.arrangement : 'original', state.colorPreference, state.randomSeed, state.mode === 'albums' ? state.arrangement === 'manual' ? state.manualOrder : state.placementOrder : null);
       }
 
+      // Sliding puzzle: the wall, scrambled. Corners stay locked.
+      $('puzzleBtn').addEventListener('click', () => {
+        const albums = state.mode === 'albums' && state.albums.length >= 12;
+        window.CornerstonePuzzle.open({
+          available: albums ? state.albums.length : 40,
+          arrange: (count, columns) => albums
+            ? arrangeWithCornerstones(state.albums, count, columns)
+            : C.arrange(state.colors.length ? state.colors : palette, count, columns, 'original', state.colorPreference, state.randomSeed, null),
+          describe: item => {
+            if (!albums) return { color: item, alt: 'Color tile' };
+            const shown = C.displayArt(item), backups = [item.art, C.generatedCover(item).art].filter(url => url && url !== shown);
+            return { src: shown, fallbacks: backups, alt: `${item.title} by ${item.artist}` };
+          }
+        });
+      });
+
       function renderGrid({ wave = false, refreshBleed = false } = {}) {
         clearWallSelection();
         const grid = $('grid');
@@ -1057,7 +1102,7 @@
       }
 
       function selectWallTile(tile) {
-        if (document.body.classList.contains('onboarding') || wallpaperMode || document.fullscreenElement || state.mode !== 'albums' || !state.customAlbums) return;
+        if (document.body.classList.contains('onboarding') || wallpaperMode || isFullscreen() || state.mode !== 'albums' || !state.customAlbums) return;
         if (dragWasHandled || manualSwapBusy) return;
         if (state.arrangement === 'manual' && tile.dataset.pinned !== 'true' && selectedTile && selectedTile !== tile && selectedTile.dataset.pinned !== 'true') {
           performManualSwap(selectedTile, tile);
@@ -1617,6 +1662,8 @@
         $('albumSelectionCount').textContent = `${draftAlbums.length} / 60 selected`;
         renderRack();
         $('applyAlbums').disabled = draftCornerSlots.some(choice => !choice);
+        $('fillRest').hidden = !!replacementTarget || draftCornerSlots.some(choice => !choice) || draftAlbums.length >= 60;
+        $('fillRest').disabled = fillBusy;
         window.CornerstoneStudio?.draftChanged(draftAlbums, draftCornerSlots.slice(), { previewOnly: !!replacementTarget });
         const shelf = $('selectedShelf');
         shelf.replaceChildren();
@@ -1714,7 +1761,7 @@
               if(albumPreviewObserver){previewLoaders.set(image,start);albumPreviewObserver.observe(image);}else start();
             }
           }
-          else if (!album.artworkUnavailable) image.src = album.thumb || album.art;
+          else if (!album.artworkUnavailable) image.src = album.localThumb || album.thumb || album.art;
           else { image.hidden=true; card.classList.add('missing-art'); }
           const title = document.createElement('strong');
           title.textContent = album.title;
@@ -1837,6 +1884,7 @@
         $('confirmReplacement').hidden = !replacementTarget;
         $('confirmReplacement').disabled = true;
         $('applyAlbums').hidden = !!replacementTarget;
+        setPickerTab('browse');
         updateDraftCount();
         const dialog=$('albumDialog');dialog.classList.remove('is-closing');dialog.showModal();
         updatePickerViewport();
@@ -1893,6 +1941,118 @@
         renderAlbumResults();
       });
       $('albumSearchForm').addEventListener('submit',event=>{event.preventDefault();clearTimeout(searchDebounce);void searchArtists();});
+
+      // ---- Browse tab: hand-picked popular albums by genre and year ----
+      // catalog.json comes from tools/build-catalog.mjs. Entries with an mbid (and optional local thumb) load instantly;
+      // entries without one are looked up on demand through the shared, cached MusicBrainz queue.
+      let browseCatalog = null, browseGenre = 'all', browseYear = null, browseSerial = 0, fillSerial = 0, fillBusy = false;
+      const pickerMain = document.querySelector('#albumDialog .picker-main');
+      async function loadBrowseCatalog() {
+        if (browseCatalog) return browseCatalog;
+        try {
+          const response = await fetch('catalog.json', { cache: 'no-cache' });
+          if (!response.ok) throw new Error(String(response.status));
+          browseCatalog = await response.json();
+        } catch (_) { browseCatalog = { genres: {} }; }
+        return browseCatalog;
+      }
+      const browseGenreKeys = catalog => Object.keys(catalog.genres || {});
+      const browseYearsFor = (catalog, genre) => [...new Set((genre === 'all' ? browseGenreKeys(catalog) : [genre]).flatMap(key => Object.keys(catalog.genres[key]?.years || {})))].sort((a, b) => b - a);
+      const browseEntriesFor = (catalog, genre, year) => (genre === 'all' ? browseGenreKeys(catalog) : [genre]).flatMap(key => (catalog.genres[key]?.years?.[year] || []).map(entry => ({ ...entry, genre: key, year })));
+      function renderBrowseControls(catalog) {
+        const genres = $('browseGenres'), years = $('browseYears');
+        const chip = (label, pressed, onClick) => { const button = document.createElement('button'); button.type = 'button'; button.className = 'browse-chip'; button.textContent = label; button.setAttribute('aria-pressed', String(pressed)); button.addEventListener('click', onClick); return button; };
+        genres.replaceChildren(chip('All genres', browseGenre === 'all', () => { browseGenre = 'all'; void showBrowse(); }), ...browseGenreKeys(catalog).map(key => chip(catalog.genres[key].label || key, browseGenre === key, () => { browseGenre = key; void showBrowse(); })));
+        const list = browseYearsFor(catalog, browseGenre);
+        if (!list.includes(browseYear)) browseYear = list[0] || null;
+        years.replaceChildren(...list.map(year => chip(year, year === browseYear, () => { browseYear = year; void showBrowse(); })));
+        years.querySelector('[aria-pressed=true]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+      }
+      async function browseRecord(entry, signal) {
+        let record = null;
+        if (entry.mbid) {
+          record = C.releaseRecord({ id: entry.mbid, title: entry.title }, entry.artist, undefined, entry.year);
+          if (entry.thumb) record.localThumb = entry.thumb;
+        } else {
+          try { record = await C.lookupAlbum(entry.artist, entry.title, signal, entry.year); }
+          catch (error) { if (error.name === 'AbortError') throw error; return null; }
+        }
+        if (record) { record.browseGenre = entry.genre; record.year = record.year || entry.year; }
+        return record;
+      }
+      const cornersIncomplete = () => draftCornerSlots.some(choice => !choice);
+      async function showBrowse() {
+        const serial = ++browseSerial;
+        searchController?.abort(); searchController = new AbortController(); ++searchSequence;
+        const signal = searchController.signal;
+        const catalog = await loadBrowseCatalog();
+        if (serial !== browseSerial) return;
+        if (!browseGenreKeys(catalog).length) { $('albumSearchStatus').textContent = 'Browse isn’t available right now. Use Search to find albums.'; $('browseGenres').replaceChildren(); $('browseYears').replaceChildren(); return; }
+        if (!browseYear) browseYear = browseYearsFor(catalog, 'all')[0];
+        renderBrowseControls(catalog);
+        const entries = browseEntriesFor(catalog, browseGenre, browseYear);
+        albumSearchResults = []; releaseFilter = 'albums'; activeArtist = null;
+        $('albumResults').classList.remove('artist-results'); $('albumResults').replaceChildren();
+        $('albumSearchStatus').textContent = cornersIncomplete() ? 'Pick four albums for your wall’s corners.' : 'Tap to add. Tap again to remove.';
+        let shown = 0;
+        try {
+          for (const entry of entries) {
+            const record = await browseRecord(entry, signal);
+            if (serial !== browseSerial) return;
+            if (!record) continue;
+            albumSearchResults = [...albumSearchResults, record]; shown++;
+            renderAlbumResults();
+          }
+        } catch (error) { if (error.name === 'AbortError') return; }
+        if (serial === browseSerial && !shown) $('albumSearchStatus').textContent = 'Couldn’t load these albums just now. Check your connection and tap the year again.';
+      }
+      function setPickerTab(tab) {
+        pickerMain.dataset.tab = tab;
+        $('pickerTabs').querySelectorAll('button').forEach(button => button.setAttribute('aria-selected', String(button.dataset.tab === tab)));
+        if (tab === 'browse') { void showBrowse(); return; }
+        ++browseSerial; searchController?.abort(); ++searchSequence;
+        albumSearchResults = []; activeArtist = null; releaseFilter = 'albums';
+        $('albumResults').classList.remove('artist-results'); $('albumResults').replaceChildren();
+        $('albumSearchStatus').textContent = 'Find an artist. Start with four albums that define your wall.';
+        if (!matchMedia('(max-width:600px)').matches) $('albumSearch').focus();
+      }
+      $('pickerTabs').addEventListener('click', event => { const button = event.target.closest('button[data-tab]'); if (button && pickerMain.dataset.tab !== button.dataset.tab) setPickerTab(button.dataset.tab); });
+      // Auto-fill: finish the collection with albums near the user's taste (same genres, nearby years).
+      async function autoFillRest() {
+        if (fillBusy || cornersIncomplete()) return;
+        const serial = ++fillSerial, need = 60 - draftAlbums.length;
+        if (need <= 0) return;
+        fillBusy = true; $('fillRest').disabled = true; $('fillRest').textContent = 'Filling…';
+        const catalog = await loadBrowseCatalog();
+        const picked = draftAlbums.filter(album => album.browseGenre), genreCount = {};
+        picked.forEach(album => { genreCount[album.browseGenre] = (genreCount[album.browseGenre] || 0) + 1; });
+        const years = picked.map(album => Number(album.year)).filter(Boolean), center = years.length ? years.reduce((sum, year) => sum + year, 0) / years.length : null;
+        const pool = browseGenreKeys(catalog).flatMap(key => Object.keys(catalog.genres[key].years || {}).flatMap(year => browseEntriesFor(catalog, key, year)))
+          .filter(entry => !draftAlbums.some(album => C.identity(album) === C.identity({ title: entry.title, artist: entry.artist })))
+          .map(entry => ({ entry, score: (genreCount[entry.genre] ? 1 + Math.min(genreCount[entry.genre], 5) / 5 : 0) + (center ? 1 - Math.min(Math.abs(Number(entry.year) - center), 15) / 15 : .5) + Math.random() * 1.2 }))
+          .sort((a, b) => b.score - a.score);
+        let added = 0, lastId = null;
+        try {
+          for (const { entry } of pool) {
+            if (serial !== fillSerial || draftAlbums.length >= 60 || added >= need) break;
+            $('albumSearchStatus').textContent = `Filling your wall… ${added} of ${need}`;
+            const record = await browseRecord(entry, searchController?.signal);
+            if (serial !== fillSerial) break;
+            if (!record || draftAlbums.some(album => sameDraftAlbum(album, record))) continue;
+            addDraftAlbum(record); added++; lastId = C.identity(record);
+            updateDraftCount();
+          }
+        } catch (_) { /* aborted or offline: keep what was added */ }
+        fillBusy = false; $('fillRest').textContent = '✦ Auto-fill';
+        if (lastId) rackLatestId = lastId;
+        if (serial === fillSerial) {
+          $('albumSearchStatus').textContent = added ? `Added ${added} albums. Open your selected albums to review or remove any.` : 'Couldn’t find more albums to add right now.';
+          renderAlbumResults();
+        }
+        updateDraftCount();
+      }
+      $('fillRest').addEventListener('click', () => void autoFillRest());
+      $('albumDialog').addEventListener('close', () => { ++fillSerial; ++browseSerial; fillBusy = false; });
       $('albumDialog').addEventListener('close',()=>{if($('albumDialog').open)return;cancelRackAnimation();clearTimeout(pickerCloseTimer);$('albumDialog').classList.remove('is-closing');clearTimeout(searchDebounce);searchController?.abort();++searchSequence;replacementTarget=replacementCandidate=null;$('applyAlbums').hidden=false;$('confirmReplacement').hidden=true;(document.body.classList.contains('onboarding')?$('reopenPicker'):$('chooseAlbums'))?.focus({preventScroll:true});});
 
       async function manualArtworkData(file) {
@@ -2238,14 +2398,70 @@
       // The fixture reset is available only on a local development URL with an explicit flag.
       if (['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('dev')) $('resetChart').hidden = false;
 
+      // Full screen: the browser's own when it exists (desktop, Android, iPad); otherwise a CSS full-screen
+      // (iPhone Safari has no Fullscreen API for pages). Installed from the Home Screen it fills the whole display.
+      const rootClass = document.documentElement.classList;
+      function isFullscreen() { return !!document.fullscreenElement || rootClass.contains('pseudo-fs'); }
+      let pseudoHome = null, exitHideTimer;
+      function showExitPill() {
+        const pill = $('pseudoFsExit'); if (!pill) return;
+        pill.classList.add('is-visible'); clearTimeout(exitHideTimer);
+        exitHideTimer = setTimeout(() => pill.classList.remove('is-visible'), 2600);
+      }
+      function enterPseudoFullscreen() {
+        const screen = $('screen');
+        pseudoHome = document.createComment('screen-home'); screen.replaceWith(pseudoHome);
+        screen.classList.add('pseudo-fullscreen'); document.body.append(screen); rootClass.add('pseudo-fs');
+        const pill = document.createElement('button'); pill.type = 'button'; pill.id = 'pseudoFsExit'; pill.className = 'pseudo-fs-exit'; pill.textContent = '✕ Exit full screen';
+        pill.addEventListener('click', event => { event.stopPropagation(); leavePseudoFullscreen(); });
+        screen.append(pill); screen.addEventListener('pointerdown', showExitPill); showExitPill();
+        document.dispatchEvent(new Event('fullscreenchange'));
+      }
+      function leavePseudoFullscreen() {
+        if (!rootClass.contains('pseudo-fs')) return;
+        const screen = $('screen'); $('pseudoFsExit')?.remove(); screen.removeEventListener('pointerdown', showExitPill);
+        screen.classList.remove('pseudo-fullscreen'); pseudoHome.replaceWith(screen); pseudoHome = null; rootClass.remove('pseudo-fs');
+        document.dispatchEvent(new Event('fullscreenchange'));
+      }
       $('fullscreen').addEventListener('click', async () => {
+        if (rootClass.contains('pseudo-fs')) { leavePseudoFullscreen(); return; }
         try {
-          if (!document.fullscreenElement) await $('screen').requestFullscreen();
-          else await document.exitFullscreen();
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else if ($('screen').requestFullscreen) await $('screen').requestFullscreen();
+          else enterPseudoFullscreen();
         } catch (_) {
-          $('screenLabel').textContent = 'Full screen is unavailable in this browser';
+          try { enterPseudoFullscreen(); } catch (error) { $('screenLabel').textContent = 'Full screen is unavailable in this browser'; }
         }
       });
+      document.addEventListener('keydown', event => { if (event.key === 'Escape') leavePseudoFullscreen(); });
+      // Keep the display awake while the wall is showing.
+      let wakeLock = null;
+      async function holdScreenAwake() {
+        try { if ('wakeLock' in navigator && isFullscreen() && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (_) { wakeLock = null; }
+      }
+      function releaseScreenAwake() { try { wakeLock?.release(); } catch (_) {} wakeLock = null; }
+      document.addEventListener('fullscreenchange', () => { if (isFullscreen()) void holdScreenAwake(); else releaseScreenAwake(); });
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && isFullscreen()) void holdScreenAwake(); });
+
+      // Install: Android/desktop Chrome offer a real prompt; iPhone/iPad need the Share-sheet steps.
+      let installPrompt = null;
+      const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      const onIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      function refreshInstallButton() {
+        const button = $('installApp');
+        button.hidden = installed() || !(installPrompt || onIos);
+        button.textContent = installPrompt ? 'Install app' : 'Add to Home Screen';
+      }
+      window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; refreshInstallButton(); });
+      window.addEventListener('appinstalled', () => { installPrompt = null; refreshInstallButton(); });
+      $('installApp').addEventListener('click', async () => {
+        if (installPrompt) { const prompt = installPrompt; installPrompt = null; prompt.prompt(); await prompt.userChoice.catch(() => {}); refreshInstallButton(); }
+        else $('installDialog').showModal();
+      });
+      $('installClose').addEventListener('click', () => $('installDialog').close());
+      $('installDialog').addEventListener('click', event => { if (event.target === $('installDialog')) $('installDialog').close(); });
+      refreshInstallButton();
+      if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 
       function setDevice(phone) {
         window.CornerstoneStudio?.cancelReveal();
@@ -2338,6 +2554,7 @@
       // Studio restores the local project before completing an OAuth callback.
     })();
   </script>
+  <script src="puzzle.js"></script>
   <script src="studio.js"></script>
   <script src="beta-ui.js"></script>
 </body>
