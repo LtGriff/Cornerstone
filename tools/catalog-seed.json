@@ -1,0 +1,1419 @@
+{
+ "genres": {
+  "hh": {
+   "label": "Hip-hop & R&B",
+   "years": {
+    "2000": [
+     [
+      "Eminem",
+      "The Marshall Mathers LP"
+     ],
+     [
+      "Outkast",
+      "Stankonia"
+     ],
+     [
+      "D'Angelo",
+      "Voodoo"
+     ],
+     [
+      "Nelly",
+      "Country Grammar"
+     ]
+    ],
+    "2001": [
+     [
+      "Jay-Z",
+      "The Blueprint"
+     ],
+     [
+      "Alicia Keys",
+      "Songs in A Minor"
+     ],
+     [
+      "Destiny's Child",
+      "Survivor"
+     ],
+     [
+      "Aaliyah",
+      "Aaliyah"
+     ]
+    ],
+    "2002": [
+     [
+      "Eminem",
+      "The Eminem Show"
+     ],
+     [
+      "Nelly",
+      "Nellyville"
+     ],
+     [
+      "Ashanti",
+      "Ashanti"
+     ],
+     [
+      "Jay-Z",
+      "The Blueprint 2: The Gift & the Curse"
+     ]
+    ],
+    "2003": [
+     [
+      "50 Cent",
+      "Get Rich or Die Tryin'"
+     ],
+     [
+      "Outkast",
+      "Speakerboxxx/The Love Below"
+     ],
+     [
+      "Beyoncé",
+      "Dangerously in Love"
+     ],
+     [
+      "Jay-Z",
+      "The Black Album"
+     ]
+    ],
+    "2004": [
+     [
+      "Kanye West",
+      "The College Dropout"
+     ],
+     [
+      "Usher",
+      "Confessions"
+     ],
+     [
+      "Ciara",
+      "Goodies"
+     ],
+     [
+      "Alicia Keys",
+      "The Diary of Alicia Keys"
+     ]
+    ],
+    "2005": [
+     [
+      "Kanye West",
+      "Late Registration"
+     ],
+     [
+      "Mariah Carey",
+      "The Emancipation of Mimi"
+     ],
+     [
+      "50 Cent",
+      "The Massacre"
+     ],
+     [
+      "Chris Brown",
+      "Chris Brown"
+     ]
+    ],
+    "2006": [
+     [
+      "Beyoncé",
+      "B'Day"
+     ],
+     [
+      "T.I.",
+      "King"
+     ],
+     [
+      "Ludacris",
+      "Release Therapy"
+     ],
+     [
+      "Ne-Yo",
+      "In My Own Words"
+     ]
+    ],
+    "2007": [
+     [
+      "Kanye West",
+      "Graduation"
+     ],
+     [
+      "Rihanna",
+      "Good Girl Gone Bad"
+     ],
+     [
+      "Jay-Z",
+      "American Gangster"
+     ],
+     [
+      "T-Pain",
+      "Epiphany"
+     ]
+    ],
+    "2008": [
+     [
+      "Lil Wayne",
+      "Tha Carter III"
+     ],
+     [
+      "Kanye West",
+      "808s & Heartbreak"
+     ],
+     [
+      "T.I.",
+      "Paper Trail"
+     ],
+     [
+      "Ne-Yo",
+      "Year of the Gentleman"
+     ]
+    ],
+    "2009": [
+     [
+      "Jay-Z",
+      "The Blueprint 3"
+     ],
+     [
+      "Eminem",
+      "Relapse"
+     ],
+     [
+      "Beyoncé",
+      "I Am... Sasha Fierce"
+     ],
+     [
+      "Rihanna",
+      "Rated R"
+     ]
+    ],
+    "2010": [
+     [
+      "Kanye West",
+      "My Beautiful Dark Twisted Fantasy"
+     ],
+     [
+      "Drake",
+      "Thank Me Later"
+     ],
+     [
+      "Nicki Minaj",
+      "Pink Friday"
+     ],
+     [
+      "Eminem",
+      "Recovery"
+     ]
+    ],
+    "2011": [
+     [
+      "Drake",
+      "Take Care"
+     ],
+     [
+      "Jay-Z & Kanye West",
+      "Watch the Throne"
+     ],
+     [
+      "Lil Wayne",
+      "Tha Carter IV"
+     ],
+     [
+      "Beyoncé",
+      "4"
+     ]
+    ],
+    "2012": [
+     [
+      "Kendrick Lamar",
+      "good kid, m.A.A.d city"
+     ],
+     [
+      "Frank Ocean",
+      "Channel Orange"
+     ],
+     [
+      "Rihanna",
+      "Unapologetic"
+     ],
+     [
+      "Nicki Minaj",
+      "Pink Friday: Roman Reloaded"
+     ]
+    ],
+    "2013": [
+     [
+      "Kanye West",
+      "Yeezus"
+     ],
+     [
+      "J. Cole",
+      "Born Sinner"
+     ],
+     [
+      "Drake",
+      "Nothing Was the Same"
+     ],
+     [
+      "Beyoncé",
+      "Beyoncé"
+     ]
+    ],
+    "2014": [
+     [
+      "J. Cole",
+      "2014 Forest Hills Drive"
+     ],
+     [
+      "ScHoolboy Q",
+      "Oxymoron"
+     ],
+     [
+      "Chris Brown",
+      "X"
+     ],
+     [
+      "D'Angelo and The Vanguard",
+      "Black Messiah"
+     ]
+    ],
+    "2015": [
+     [
+      "Kendrick Lamar",
+      "To Pimp a Butterfly"
+     ],
+     [
+      "Future",
+      "DS2"
+     ],
+     [
+      "The Weeknd",
+      "Beauty Behind the Madness"
+     ],
+     [
+      "Fetty Wap",
+      "Fetty Wap"
+     ]
+    ],
+    "2016": [
+     [
+      "Beyoncé",
+      "Lemonade"
+     ],
+     [
+      "Frank Ocean",
+      "Blonde"
+     ],
+     [
+      "Drake",
+      "Views"
+     ],
+     [
+      "Rihanna",
+      "Anti"
+     ]
+    ],
+    "2017": [
+     [
+      "Kendrick Lamar",
+      "DAMN."
+     ],
+     [
+      "SZA",
+      "Ctrl"
+     ],
+     [
+      "Migos",
+      "Culture"
+     ],
+     [
+      "Tyler, the Creator",
+      "Flower Boy"
+     ]
+    ],
+    "2018": [
+     [
+      "Travis Scott",
+      "Astroworld"
+     ],
+     [
+      "Drake",
+      "Scorpion"
+     ],
+     [
+      "Cardi B",
+      "Invasion of Privacy"
+     ],
+     [
+      "Mac Miller",
+      "Swimming"
+     ]
+    ],
+    "2019": [
+     [
+      "Tyler, the Creator",
+      "Igor"
+     ],
+     [
+      "Post Malone",
+      "Hollywood's Bleeding"
+     ],
+     [
+      "Roddy Ricch",
+      "Please Excuse Me for Being Antisocial"
+     ],
+     [
+      "Summer Walker",
+      "Over It"
+     ]
+    ],
+    "2020": [
+     [
+      "The Weeknd",
+      "After Hours"
+     ],
+     [
+      "Pop Smoke",
+      "Shoot for the Stars, Aim for the Moon"
+     ],
+     [
+      "Juice WRLD",
+      "Legends Never Die"
+     ],
+     [
+      "Lil Baby",
+      "My Turn"
+     ]
+    ],
+    "2021": [
+     [
+      "Drake",
+      "Certified Lover Boy"
+     ],
+     [
+      "Kanye West",
+      "Donda"
+     ],
+     [
+      "Tyler, the Creator",
+      "Call Me If You Get Lost"
+     ],
+     [
+      "Doja Cat",
+      "Planet Her"
+     ]
+    ],
+    "2022": [
+     [
+      "Kendrick Lamar",
+      "Mr. Morale & the Big Steppers"
+     ],
+     [
+      "Beyoncé",
+      "Renaissance"
+     ],
+     [
+      "SZA",
+      "SOS"
+     ],
+     [
+      "Drake & 21 Savage",
+      "Her Loss"
+     ]
+    ],
+    "2023": [
+     [
+      "Travis Scott",
+      "Utopia"
+     ],
+     [
+      "Metro Boomin",
+      "Heroes & Villains"
+     ],
+     [
+      "Drake",
+      "For All the Dogs"
+     ],
+     [
+      "Nicki Minaj",
+      "Pink Friday 2"
+     ]
+    ],
+    "2024": [
+     [
+      "Kendrick Lamar",
+      "GNX"
+     ],
+     [
+      "Tyler, the Creator",
+      "Chromakopia"
+     ],
+     [
+      "Future & Metro Boomin",
+      "We Don't Trust You"
+     ],
+     [
+      "Don Toliver",
+      "Hardstone Psycho"
+     ]
+    ],
+    "2025": [
+     [
+      "Playboi Carti",
+      "MUSIC"
+     ],
+     [
+      "Drake & PartyNextDoor",
+      "$ome $exy $ongs 4 U"
+     ]
+    ]
+   }
+  },
+  "pop": {
+   "label": "Pop",
+   "years": {
+    "2000": [
+     [
+      "*NSYNC",
+      "No Strings Attached"
+     ],
+     [
+      "Britney Spears",
+      "Oops!... I Did It Again"
+     ],
+     [
+      "Backstreet Boys",
+      "Black & Blue"
+     ],
+     [
+      "Madonna",
+      "Music"
+     ]
+    ],
+    "2001": [
+     [
+      "Britney Spears",
+      "Britney"
+     ],
+     [
+      "Janet Jackson",
+      "All for You"
+     ],
+     [
+      "Shakira",
+      "Laundry Service"
+     ],
+     [
+      "Kylie Minogue",
+      "Fever"
+     ]
+    ],
+    "2002": [
+     [
+      "Avril Lavigne",
+      "Let Go"
+     ],
+     [
+      "Norah Jones",
+      "Come Away with Me"
+     ],
+     [
+      "Justin Timberlake",
+      "Justified"
+     ],
+     [
+      "Christina Aguilera",
+      "Stripped"
+     ]
+    ],
+    "2003": [
+     [
+      "Britney Spears",
+      "In the Zone"
+     ],
+     [
+      "Kelly Clarkson",
+      "Thankful"
+     ],
+     [
+      "Hilary Duff",
+      "Metamorphosis"
+     ],
+     [
+      "Black Eyed Peas",
+      "Elephunk"
+     ]
+    ],
+    "2004": [
+     [
+      "Gwen Stefani",
+      "Love. Angel. Music. Baby."
+     ],
+     [
+      "Kelly Clarkson",
+      "Breakaway"
+     ],
+     [
+      "Norah Jones",
+      "Feels Like Home"
+     ],
+     [
+      "Ashlee Simpson",
+      "Autobiography"
+     ]
+    ],
+    "2005": [
+     [
+      "Pussycat Dolls",
+      "PCD"
+     ],
+     [
+      "Black Eyed Peas",
+      "Monkey Business"
+     ],
+     [
+      "Michael Bublé",
+      "It's Time"
+     ],
+     [
+      "Shakira",
+      "Oral Fixation, Vol. 2"
+     ]
+    ],
+    "2006": [
+     [
+      "Justin Timberlake",
+      "FutureSex/LoveSounds"
+     ],
+     [
+      "Nelly Furtado",
+      "Loose"
+     ],
+     [
+      "Fergie",
+      "The Dutchess"
+     ],
+     [
+      "Pink",
+      "I'm Not Dead"
+     ],
+     [
+      "Amy Winehouse",
+      "Back to Black"
+     ]
+    ],
+    "2007": [
+     [
+      "Britney Spears",
+      "Blackout"
+     ],
+     [
+      "Avril Lavigne",
+      "The Best Damn Thing"
+     ],
+     [
+      "Colbie Caillat",
+      "Coco"
+     ],
+     [
+      "Kelly Clarkson",
+      "My December"
+     ]
+    ],
+    "2008": [
+     [
+      "Lady Gaga",
+      "The Fame"
+     ],
+     [
+      "Taylor Swift",
+      "Fearless"
+     ],
+     [
+      "Pink",
+      "Funhouse"
+     ],
+     [
+      "Britney Spears",
+      "Circus"
+     ]
+    ],
+    "2009": [
+     [
+      "Lady Gaga",
+      "The Fame Monster"
+     ],
+     [
+      "Black Eyed Peas",
+      "The E.N.D."
+     ],
+     [
+      "Susan Boyle",
+      "I Dreamed a Dream"
+     ],
+     [
+      "Michael Bublé",
+      "Crazy Love"
+     ]
+    ],
+    "2010": [
+     [
+      "Katy Perry",
+      "Teenage Dream"
+     ],
+     [
+      "Taylor Swift",
+      "Speak Now"
+     ],
+     [
+      "Justin Bieber",
+      "My World 2.0"
+     ],
+     [
+      "Rihanna",
+      "Loud"
+     ]
+    ],
+    "2011": [
+     [
+      "Adele",
+      "21"
+     ],
+     [
+      "Lady Gaga",
+      "Born This Way"
+     ],
+     [
+      "Britney Spears",
+      "Femme Fatale"
+     ],
+     [
+      "Ed Sheeran",
+      "+"
+     ]
+    ],
+    "2012": [
+     [
+      "Taylor Swift",
+      "Red"
+     ],
+     [
+      "Justin Bieber",
+      "Believe"
+     ],
+     [
+      "One Direction",
+      "Take Me Home"
+     ],
+     [
+      "Lana Del Rey",
+      "Born to Die"
+     ]
+    ],
+    "2013": [
+     [
+      "Lorde",
+      "Pure Heroine"
+     ],
+     [
+      "Miley Cyrus",
+      "Bangerz"
+     ],
+     [
+      "Justin Timberlake",
+      "The 20/20 Experience"
+     ],
+     [
+      "Katy Perry",
+      "Prism"
+     ]
+    ],
+    "2014": [
+     [
+      "Taylor Swift",
+      "1989"
+     ],
+     [
+      "Ariana Grande",
+      "My Everything"
+     ],
+     [
+      "Sam Smith",
+      "In the Lonely Hour"
+     ],
+     [
+      "Ed Sheeran",
+      "x"
+     ]
+    ],
+    "2015": [
+     [
+      "Adele",
+      "25"
+     ],
+     [
+      "Justin Bieber",
+      "Purpose"
+     ],
+     [
+      "Selena Gomez",
+      "Revival"
+     ],
+     [
+      "Meghan Trainor",
+      "Title"
+     ]
+    ],
+    "2016": [
+     [
+      "Ariana Grande",
+      "Dangerous Woman"
+     ],
+     [
+      "Shawn Mendes",
+      "Illuminate"
+     ],
+     [
+      "Lady Gaga",
+      "Joanne"
+     ],
+     [
+      "Bruno Mars",
+      "24K Magic"
+     ]
+    ],
+    "2017": [
+     [
+      "Ed Sheeran",
+      "÷"
+     ],
+     [
+      "Taylor Swift",
+      "reputation"
+     ],
+     [
+      "Harry Styles",
+      "Harry Styles"
+     ],
+     [
+      "Lana Del Rey",
+      "Lust for Life"
+     ]
+    ],
+    "2018": [
+     [
+      "Ariana Grande",
+      "Sweetener"
+     ],
+     [
+      "Camila Cabello",
+      "Camila"
+     ],
+     [
+      "Shawn Mendes",
+      "Shawn Mendes"
+     ],
+     [
+      "Lady Gaga & Bradley Cooper",
+      "A Star Is Born"
+     ]
+    ],
+    "2019": [
+     [
+      "Billie Eilish",
+      "When We All Fall Asleep, Where Do We Go?"
+     ],
+     [
+      "Ariana Grande",
+      "thank u, next"
+     ],
+     [
+      "Taylor Swift",
+      "Lover"
+     ],
+     [
+      "Harry Styles",
+      "Fine Line"
+     ]
+    ],
+    "2020": [
+     [
+      "Dua Lipa",
+      "Future Nostalgia"
+     ],
+     [
+      "Taylor Swift",
+      "folklore"
+     ],
+     [
+      "Lady Gaga",
+      "Chromatica"
+     ],
+     [
+      "Selena Gomez",
+      "Rare"
+     ]
+    ],
+    "2021": [
+     [
+      "Olivia Rodrigo",
+      "SOUR"
+     ],
+     [
+      "Adele",
+      "30"
+     ],
+     [
+      "Billie Eilish",
+      "Happier Than Ever"
+     ],
+     [
+      "Taylor Swift",
+      "Red (Taylor's Version)"
+     ]
+    ],
+    "2022": [
+     [
+      "Taylor Swift",
+      "Midnights"
+     ],
+     [
+      "Harry Styles",
+      "Harry's House"
+     ],
+     [
+      "Lizzo",
+      "Special"
+     ],
+     [
+      "Charlie Puth",
+      "Charlie"
+     ]
+    ],
+    "2023": [
+     [
+      "Olivia Rodrigo",
+      "GUTS"
+     ],
+     [
+      "Miley Cyrus",
+      "Endless Summer Vacation"
+     ],
+     [
+      "Taylor Swift",
+      "1989 (Taylor's Version)"
+     ],
+     [
+      "Chappell Roan",
+      "The Rise and Fall of a Midwest Princess"
+     ]
+    ],
+    "2024": [
+     [
+      "Sabrina Carpenter",
+      "Short n' Sweet"
+     ],
+     [
+      "Taylor Swift",
+      "The Tortured Poets Department"
+     ],
+     [
+      "Billie Eilish",
+      "Hit Me Hard and Soft"
+     ],
+     [
+      "Charli XCX",
+      "Brat"
+     ]
+    ],
+    "2025": [
+     [
+      "Lady Gaga",
+      "Mayhem"
+     ],
+     [
+      "Taylor Swift",
+      "The Life of a Showgirl"
+     ],
+     [
+      "Sabrina Carpenter",
+      "Man's Best Friend"
+     ],
+     [
+      "Justin Bieber",
+      "Swag"
+     ]
+    ]
+   }
+  },
+  "rock": {
+   "label": "Rock & alt",
+   "years": {
+    "2000": [
+     [
+      "Linkin Park",
+      "Hybrid Theory"
+     ],
+     [
+      "Radiohead",
+      "Kid A"
+     ],
+     [
+      "Coldplay",
+      "Parachutes"
+     ],
+     [
+      "Papa Roach",
+      "Infest"
+     ]
+    ],
+    "2001": [
+     [
+      "The Strokes",
+      "Is This It"
+     ],
+     [
+      "System of a Down",
+      "Toxicity"
+     ],
+     [
+      "The White Stripes",
+      "White Blood Cells"
+     ],
+     [
+      "Staind",
+      "Break the Cycle"
+     ]
+    ],
+    "2002": [
+     [
+      "Coldplay",
+      "A Rush of Blood to the Head"
+     ],
+     [
+      "Foo Fighters",
+      "One by One"
+     ],
+     [
+      "Queens of the Stone Age",
+      "Songs for the Deaf"
+     ],
+     [
+      "Red Hot Chili Peppers",
+      "By the Way"
+     ]
+    ],
+    "2003": [
+     [
+      "Linkin Park",
+      "Meteora"
+     ],
+     [
+      "The White Stripes",
+      "Elephant"
+     ],
+     [
+      "Evanescence",
+      "Fallen"
+     ],
+     [
+      "Radiohead",
+      "Hail to the Thief"
+     ]
+    ],
+    "2004": [
+     [
+      "Green Day",
+      "American Idiot"
+     ],
+     [
+      "The Killers",
+      "Hot Fuss"
+     ],
+     [
+      "Arcade Fire",
+      "Funeral"
+     ],
+     [
+      "Franz Ferdinand",
+      "Franz Ferdinand"
+     ]
+    ],
+    "2005": [
+     [
+      "Foo Fighters",
+      "In Your Honor"
+     ],
+     [
+      "Fall Out Boy",
+      "From Under the Cork Tree"
+     ],
+     [
+      "Coldplay",
+      "X&Y"
+     ],
+     [
+      "Death Cab for Cutie",
+      "Plans"
+     ]
+    ],
+    "2006": [
+     [
+      "Arctic Monkeys",
+      "Whatever People Say I Am, That's What I'm Not"
+     ],
+     [
+      "My Chemical Romance",
+      "The Black Parade"
+     ],
+     [
+      "Red Hot Chili Peppers",
+      "Stadium Arcadium"
+     ],
+     [
+      "Muse",
+      "Black Holes and Revelations"
+     ]
+    ],
+    "2007": [
+     [
+      "Foo Fighters",
+      "Echoes, Silence, Patience & Grace"
+     ],
+     [
+      "Paramore",
+      "Riot!"
+     ],
+     [
+      "Radiohead",
+      "In Rainbows"
+     ],
+     [
+      "Arcade Fire",
+      "Neon Bible"
+     ]
+    ],
+    "2008": [
+     [
+      "Coldplay",
+      "Viva la Vida or Death and All His Friends"
+     ],
+     [
+      "Kings of Leon",
+      "Only by the Night"
+     ],
+     [
+      "Fleet Foxes",
+      "Fleet Foxes"
+     ],
+     [
+      "Vampire Weekend",
+      "Vampire Weekend"
+     ]
+    ],
+    "2009": [
+     [
+      "Green Day",
+      "21st Century Breakdown"
+     ],
+     [
+      "Muse",
+      "The Resistance"
+     ],
+     [
+      "Animal Collective",
+      "Merriweather Post Pavilion"
+     ],
+     [
+      "Phoenix",
+      "Wolfgang Amadeus Phoenix"
+     ]
+    ],
+    "2010": [
+     [
+      "Arcade Fire",
+      "The Suburbs"
+     ],
+     [
+      "Mumford & Sons",
+      "Sigh No More"
+     ],
+     [
+      "Linkin Park",
+      "A Thousand Suns"
+     ],
+     [
+      "The National",
+      "High Violet"
+     ]
+    ],
+    "2011": [
+     [
+      "Foo Fighters",
+      "Wasting Light"
+     ],
+     [
+      "Coldplay",
+      "Mylo Xyloto"
+     ],
+     [
+      "Bon Iver",
+      "Bon Iver, Bon Iver"
+     ],
+     [
+      "Foster the People",
+      "Torches"
+     ]
+    ],
+    "2012": [
+     [
+      "Mumford & Sons",
+      "Babel"
+     ],
+     [
+      "Imagine Dragons",
+      "Night Visions"
+     ],
+     [
+      "Tame Impala",
+      "Lonerism"
+     ],
+     [
+      "The Lumineers",
+      "The Lumineers"
+     ]
+    ],
+    "2013": [
+     [
+      "Arctic Monkeys",
+      "AM"
+     ],
+     [
+      "Vampire Weekend",
+      "Modern Vampires of the City"
+     ],
+     [
+      "Queens of the Stone Age",
+      "...Like Clockwork"
+     ],
+     [
+      "The National",
+      "Trouble Will Find Me"
+     ]
+    ],
+    "2014": [
+     [
+      "Jack White",
+      "Lazaretto"
+     ],
+     [
+      "The War on Drugs",
+      "Lost in the Dream"
+     ],
+     [
+      "alt-J",
+      "This Is All Yours"
+     ],
+     [
+      "St. Vincent",
+      "St. Vincent"
+     ]
+    ],
+    "2015": [
+     [
+      "Twenty One Pilots",
+      "Blurryface"
+     ],
+     [
+      "Tame Impala",
+      "Currents"
+     ],
+     [
+      "Alabama Shakes",
+      "Sound & Color"
+     ],
+     [
+      "Courtney Barnett",
+      "Sometimes I Sit and Think, and Sometimes I Just Sit"
+     ]
+    ],
+    "2016": [
+     [
+      "Radiohead",
+      "A Moon Shaped Pool"
+     ],
+     [
+      "Panic! at the Disco",
+      "Death of a Bachelor"
+     ],
+     [
+      "Blink-182",
+      "California"
+     ],
+     [
+      "Weezer",
+      "Weezer (White Album)"
+     ]
+    ],
+    "2017": [
+     [
+      "Foo Fighters",
+      "Concrete and Gold"
+     ],
+     [
+      "Imagine Dragons",
+      "Evolve"
+     ],
+     [
+      "The National",
+      "Sleep Well Beast"
+     ],
+     [
+      "Queens of the Stone Age",
+      "Villains"
+     ]
+    ],
+    "2018": [
+     [
+      "Arctic Monkeys",
+      "Tranquility Base Hotel & Casino"
+     ],
+     [
+      "Greta Van Fleet",
+      "Anthem of the Peaceful Army"
+     ],
+     [
+      "Twenty One Pilots",
+      "Trench"
+     ],
+     [
+      "Mitski",
+      "Be the Cowboy"
+     ]
+    ],
+    "2019": [
+     [
+      "Vampire Weekend",
+      "Father of the Bride"
+     ],
+     [
+      "Tool",
+      "Fear Inoculum"
+     ],
+     [
+      "Bring Me the Horizon",
+      "amo"
+     ],
+     [
+      "Big Thief",
+      "U.F.O.F."
+     ]
+    ],
+    "2020": [
+     [
+      "AC/DC",
+      "Power Up"
+     ],
+     [
+      "Machine Gun Kelly",
+      "Tickets to My Downfall"
+     ],
+     [
+      "Tame Impala",
+      "The Slow Rush"
+     ],
+     [
+      "Pearl Jam",
+      "Gigaton"
+     ]
+    ],
+    "2021": [
+     [
+      "Foo Fighters",
+      "Medicine at Midnight"
+     ],
+     [
+      "Japanese Breakfast",
+      "Jubilee"
+     ],
+     [
+      "Turnstile",
+      "Glow On"
+     ],
+     [
+      "Wolf Alice",
+      "Blue Weekend"
+     ]
+    ],
+    "2022": [
+     [
+      "Arctic Monkeys",
+      "The Car"
+     ],
+     [
+      "Wet Leg",
+      "Wet Leg"
+     ],
+     [
+      "The 1975",
+      "Being Funny in a Foreign Language"
+     ],
+     [
+      "Noah Kahan",
+      "Stick Season"
+     ]
+    ],
+    "2023": [
+     [
+      "Foo Fighters",
+      "But Here We Are"
+     ],
+     [
+      "boygenius",
+      "the record"
+     ],
+     [
+      "Metallica",
+      "72 Seasons"
+     ],
+     [
+      "Paramore",
+      "This Is Why"
+     ]
+    ],
+    "2024": [
+     [
+      "Green Day",
+      "Saviors"
+     ],
+     [
+      "Fontaines D.C.",
+      "Romance"
+     ],
+     [
+      "Pearl Jam",
+      "Dark Matter"
+     ],
+     [
+      "The Black Keys",
+      "Ohio Players"
+     ]
+    ],
+    "2025": [
+     [
+      "Turnstile",
+      "Never Enough"
+     ],
+     [
+      "Wet Leg",
+      "Moisturizer"
+     ],
+     [
+      "Tame Impala",
+      "Deadbeat"
+     ],
+     [
+      "Geese",
+      "Getting Killed"
+     ]
+    ]
+   }
+  }
+ }
+}

@@ -86,7 +86,7 @@
       if(album&&!album.color)void C.analyze(album).then(()=>{if(revision===outerRevision)paint(effectiveCornerColor(album,i));});
     }
   }
-  document.addEventListener('fullscreenchange',()=>{cancelReveal();const full=!!document.fullscreenElement;outerFrame.hidden=full;appearanceDock.hidden=full;if(full)closeAppearance();});
+  document.addEventListener('fullscreenchange',()=>{cancelReveal();const full=!!document.fullscreenElement||document.documentElement.classList.contains('pseudo-fs');outerFrame.hidden=full;appearanceDock.hidden=full;if(full)closeAppearance();});
   window.addEventListener('pagehide',cancelReveal);
   let currentStep='landing', hasProject=false, ready=false, draft=null, draftCornerIndices=null, importData=null, dismissed=new Set(), saveTimer, saveQueue=Promise.resolve(), gradientRevision=0, toastTimer, recommendationTimer, recommendationRevision=0, recommendationController;
   let activeDraft=false;
