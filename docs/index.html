@@ -634,6 +634,7 @@
   </style>
   <link rel="stylesheet" href="studio.css">
   <link rel="stylesheet" href="puzzle.css">
+  <link rel="stylesheet" href="panel.css">
 </head>
 <body class="onboarding">
   <div id="outerWebsiteFrame" class="outer-website-frame" aria-hidden="true"></div>
@@ -716,8 +717,8 @@
       <div class="actions">
         <button class="action" id="shuffle" type="button">Shuffle colors</button>
         <button class="action primary" id="fullscreen" type="button">View full screen</button>
-        <button class="action" id="savePhone" type="button">Save phone wallpaper</button>
-        <button class="action" id="saveDesktop" type="button">Save desktop wallpaper</button>
+        <button class="action" id="savePhone" type="button">Save for phone</button>
+        <button class="action" id="saveDesktop" type="button">Save for desktop</button>
         <button class="action" id="puzzleBtn" type="button">Play the puzzle</button>
         <button class="action" id="installApp" type="button" hidden>Install app</button>
       </div>
@@ -2295,7 +2296,8 @@
       // ---- Phone wallpaper picker: Apple / Android pills -> model list -> exact-size export ----
       (() => {
         const IPHONES = [
-          ['iPhone 18 Pro Max',1320,2868],['iPhone 18 Pro',1206,2622],['iPhone 17 Pro Max',1320,2868],['iPhone 17 Pro',1206,2622],
+          ['iPhone 18 Pro Max',1320,2868],['iPhone 18 Pro',1206,2622],['iPhone Duo (inner screen)',1878,2670],['iPhone Duo (outer screen)',1398,2034],
+          ['iPhone 17 Pro Max',1320,2868],['iPhone 17 Pro',1206,2622],
           ['iPhone 17',1206,2622],['iPhone Air',1260,2736],['iPhone 17e',1170,2532],['iPhone 16 Pro Max',1320,2868],
           ['iPhone 16 Pro',1206,2622],['iPhone 16 Plus',1290,2796],['iPhone 16',1179,2556],['iPhone 16e',1170,2532],
           ['iPhone 15 Pro Max',1290,2796],['iPhone 15 Pro',1179,2556],['iPhone 15 Plus',1290,2796],['iPhone 15',1179,2556],
@@ -2303,6 +2305,7 @@
           ['Another iPhone',1170,2532]
         ];
         const ANDROIDS = [
+          ['Pixel 11 Pro XL',1344,2992],['Pixel 11 Pro',1280,2856],['Pixel 11',1080,2424],
           ['Galaxy S26 Ultra',1440,3120],['Galaxy S26+',1440,3120],['Galaxy S26',1080,2340],
           ['Galaxy S25 Ultra',1440,3120],['Galaxy S25+',1440,3120],['Galaxy S25',1080,2340],
           ['Pixel 10 Pro XL',1344,2992],['Pixel 10 Pro',1280,2856],['Pixel 10',1080,2424],['Pixel 10a',1080,2424],
@@ -2556,6 +2559,7 @@
   </script>
   <script src="puzzle.js"></script>
   <script src="studio.js"></script>
+  <script src="panel.js"></script>
   <script src="beta-ui.js"></script>
 </body>
 </html>
