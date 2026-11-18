@@ -34,14 +34,15 @@ async function polite(url, gap, headers = {}) {
 }
 
 const norm = s => String(s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '');
+const plain = s => String(s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 const firstArtist = a => a.split(/\s*(?:&| and |,|feat\.)\s*/i)[0];
 const same = (a, b) => { const x = norm(a), y = norm(b); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); };
 
-async function search(query) {
+async function search(query, limit = 8) {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const r = await polite(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(query)}&fmt=json&limit=8`, 1100, { Accept: 'application/json' });
+    const r = await polite(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}`, 1100, { Accept: 'application/json' });
     if (r.ok) return (await r.json())['release-groups'] || [];
-    if (r.status === 429 || r.status === 503) { await wait(5000 * (attempt + 1)); continue; }
+    if (r.status === 429 || r.status === 503) { await wait(8000 * (attempt + 1)); continue; }
     return [];
   }
   return [];
@@ -61,6 +62,9 @@ async function lookup(artist, title) {
   const clean = s => s.replace(/["\\]/g, '');
   let hit = pick(await search(`releasegroup:"${clean(title)}" AND artist:"${clean(artist)}"`), artist, title);
   if (!hit) hit = pick(await search(`releasegroup:"${clean(title)}"`), artist, title);
+  // Last tries: accents and symbols can trip the exact search, so look by artist alone and match the title ourselves.
+  if (!hit) hit = pick(await search(`artist:"${clean(plain(firstArtist(artist)))}" AND releasegroup:${clean(plain(title)).split(/\s+/).filter(w => /[a-z0-9]/i.test(w)).join(' AND releasegroup:') || 'x'}`, 25), artist, title);
+  if (!hit) hit = pick(await search(`artist:"${clean(plain(firstArtist(artist)))}" AND type:album`, 100), artist, title);
   if (!hit) return { miss: true };
   return { mbid: hit.id, mbTitle: hit.title, mbArtist: (hit['artist-credit'] || []).map(c => c.name).join(''), score: hit.score };
 }
@@ -88,7 +92,7 @@ for (const [key, genre] of Object.entries(seed.genres)) {
     const out = [];
     for (const [artist, title] of albums) {
       const id = `${artist}|${title}`;
-      if (!cache[id]) cache[id] = await lookup(artist, title);
+      if (!cache[id] || cache[id].miss) cache[id] = await lookup(artist, title); // misses are retried on every run
       const hit = cache[id];
       done++;
       if (done % 10 === 0) { await writeFile(cachePath, JSON.stringify(cache)); console.log(`${done}/${total}`); }
