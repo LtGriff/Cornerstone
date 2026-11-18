@@ -75,7 +75,8 @@ html[data-theme=day] .app .q-inner .segmented button[aria-pressed="true"] { box-
 .app .controls .actions .action { order: 3; }
 .app .controls .actions .action.primary { order: 1; }
 .app .controls .actions #savePhone, .app .controls .actions #saveDesktop { order: 2; }
-.app .controls #installApp { grid-column: 1 / -1; order: 4; }
+.app .controls #installApp { grid-column: 1 / -1; order: 5; }
+.app .controls #shareWall { grid-column: 1 / -1; order: 4; }
 .app .controls .tip { margin: 8px 6px 0; font-size: .76rem; text-align: left; }
 
 /* ---- beta buttons sit clear of the panel ---- */
@@ -114,6 +115,7 @@ html[data-theme=day] .app .q-inner .segmented button[aria-pressed="true"] { box-
 }
 html[data-theme=day] .app .controls { }
 @media (max-width: 760px) { html[data-theme=day] .app .controls { background: rgba(248, 249, 248, .92); } }
+@media (max-width: 760px) { #studioToast { bottom: calc(var(--sheet-h) + 14px); } }
 @media (max-width: 380px) { .app .controls .action { font-size: .82rem; padding: 0 6px; } }
 @media (prefers-reduced-motion: reduce) { .app .controls, .app .workspace, .q-body, .q-chev { transition: none; } }
 

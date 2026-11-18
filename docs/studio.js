@@ -266,6 +266,7 @@
     if(A.wallpaperMode){document.body.classList.remove('onboarding');document.querySelector('.app').inert=false;A.renderGrid();return;}
     const callback=new URLSearchParams(location.search);
     if(callback.has('code')||callback.has('error')){show('<p class="eyebrow">Spotify → Cornerstone</p><h2 tabindex="-1">Gathering your albums.</h2><p class="subtitle" id="importProgress">Reading your selected listening periods…</p>');const handled=await A.finishSpotifyImport();if(callback.has('error')&&!handled){connect();toast('Spotify connection was cancelled.');}}
+    else if(window.CornerstoneShare?.hasLink()){if(!(await window.CornerstoneShare.open(hasProject)))landing();}
     else landing();
   }
   void boot();

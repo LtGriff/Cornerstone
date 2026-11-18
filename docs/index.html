@@ -720,6 +720,7 @@
         <button class="action" id="savePhone" type="button">Save for phone</button>
         <button class="action" id="saveDesktop" type="button">Save for desktop</button>
         <button class="action" id="puzzleBtn" type="button">Play the puzzle</button>
+        <button class="action" id="shareWall" type="button">Share wall link</button>
         <button class="action" id="installApp" type="button" hidden>Install app</button>
       </div>
       <p class="tip" id="albumExportNote" hidden>Album-cover downloads are paused in this beta. Color wallpapers can still be saved.</p>
@@ -2375,6 +2376,9 @@
         lastManualSwap = lastReplacement = null;
         state.customAlbums = true;
         state.mode = 'albums';
+        // Show what they picked: 60 albums should not land on a 12-tile wall.
+        state.detail = nextAlbums.length >= 60 ? 5 : nextAlbums.length >= 40 ? 4 : nextAlbums.length >= 24 ? 3 : nextAlbums.length >= 12 ? 2 : 1;
+        $('detail').value = state.detail;
         void window.CornerstoneStudio?.save();
         document.querySelectorAll('[data-mode]').forEach((choice) => choice.setAttribute('aria-pressed', String(choice.dataset.mode === 'albums')));
         closePicker();
@@ -2558,6 +2562,7 @@
     })();
   </script>
   <script src="puzzle.js"></script>
+  <script src="share.js"></script>
   <script src="studio.js"></script>
   <script src="panel.js"></script>
   <script src="beta-ui.js"></script>

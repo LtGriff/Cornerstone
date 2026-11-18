@@ -1,0 +1,32 @@
+# Builds the Browse catalog on GitHub's servers: looks every album up on MusicBrainz, saves small covers,
+# and commits docs/catalog.json + docs/covers/ + tools/report.txt. Run it from the Actions tab ("Run workflow").
+name: Build Browse catalog
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: build-catalog
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build catalog
+        env:
+          MB_CONTACT: https://github.com/${{ github.repository }}
+        run: node tools/build-catalog.mjs
+      - name: Commit results
+        run: |
+          git config user.name "cornerstone-catalog-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/catalog.json docs/covers tools/report.txt tools/.cache.json
+          if git diff --cached --quiet; then echo "Nothing changed."; else
+            git commit -m "Update Browse catalog and covers"
+            git push
+          fi
