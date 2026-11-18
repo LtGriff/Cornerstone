@@ -1,19 +1,5 @@
-NO MATCH   Hip-hop & R&B 2002: Jay-Z - The Blueprint 2: The Gift & the Curse
-NO MATCH   Hip-hop & R&B 2003: Outkast - Speakerboxxx/The Love Below
-NO MATCH   Hip-hop & R&B 2004: Usher - Confessions
-NO MATCH   Hip-hop & R&B 2011: Beyoncé - 4
-NO MATCH   Hip-hop & R&B 2016: Beyoncé - Lemonade
-NO MATCH   Hip-hop & R&B 2022: Beyoncé - Renaissance
 NO MATCH   Pop 2006: Pink - I'm Not Dead
 NO MATCH   Pop 2008: Pink - Funhouse
-NO MATCH   Pop 2009: Michael Bublé - Crazy Love
 NO MATCH   Pop 2011: Ed Sheeran - +
-NO MATCH   Pop 2015: Selena Gomez - Revival
 NO MATCH   Pop 2017: Ed Sheeran - ÷
-NO MATCH   Pop 2019: Harry Styles - Fine Line
 NO COVER   Pop 2020: Selena Gomez - Rare  (the app will show a generated cover)
-NO MATCH   Pop 2025: Lady Gaga - Mayhem
-NO MATCH   Rock & alt 2015: Tame Impala - Currents
-NO MATCH   Rock & alt 2016: Weezer - Weezer (White Album)
-NO MATCH   Rock & alt 2017: Imagine Dragons - Evolve
-NO MATCH   Rock & alt 2019: Bring Me the Horizon - amo
