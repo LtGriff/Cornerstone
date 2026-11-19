@@ -119,3 +119,22 @@ html[data-theme=day] .app .controls::before, html[data-theme=day] #albumDialog::
 .car-nav[data-dir="-1"] { left: 8px; } .car-nav[data-dir="1"] { right: 8px; }
 .car-nav:hover { background: var(--seg-on); }
 .car-wrap { position: relative; }
+
+/* ---- Phone picker: full screen, one scroll area, calmer top ---- */
+@media (max-width: 600px) {
+  html:has(#albumDialog[open]), html:has(#albumDialog[open]) body { overflow: hidden; overscroll-behavior: none; }
+  #albumDialog { position: fixed !important; inset: 0 !important; width: auto !important; height: auto !important; max-width: none !important; max-height: none !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none; }
+  #albumDialog .picker-shell { border-radius: 0; }
+  #albumDialog .picker-head { padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+  #albumDialog .picker-head p:not(.picker-kicker) { display: none; }
+  /* the whole middle scrolls together, so a swipe anywhere on it moves the picker, not the page */
+  #albumDialog .picker-main { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 6px 12px 12px; }
+  #albumDialog .album-results { flex: 0 0 auto; overflow: visible; overscroll-behavior: auto; padding-bottom: 24px; }
+  #albumDialog .album-results.view-carousel { overflow-x: auto; overflow-y: hidden; }
+  /* calmer top: slimmer cornerstone bar, tighter chips */
+  #albumDialog .corner-guide { padding: 4px 12px 6px; gap: 4px; }
+  #albumDialog .corner-guide p { display: none; }
+  #albumDialog .corner-slot { height: 38px; max-width: 56px; }
+  #albumDialog .browse-chip, #albumDialog .browse-chips button { min-height: 34px; }
+  #albumDialog .browse-panel { gap: 6px; }
+}
