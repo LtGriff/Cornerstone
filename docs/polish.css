@@ -1,0 +1,70 @@
+/* Cornerstone look: moving album-color background, colorful tiles, glowing edges, new type, softer buttons. */
+:root { --display: "Bricolage Grotesque", Inter, ui-sans-serif, system-ui, sans-serif; }
+
+/* ---- moving album-color background ---- */
+.mesh { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.mesh i { position: absolute; width: 64vmax; height: 64vmax; border-radius: 50%; filter: blur(90px); opacity: .34; will-change: translate; transition: background 1.2s ease; }
+.mesh i:nth-child(1) { left: -18vmax; top: -22vmax; background: var(--ambient-1); animation: mesh-a 38s ease-in-out infinite alternate; }
+.mesh i:nth-child(2) { right: -20vmax; top: 10vmax; background: var(--ambient-3); animation: mesh-b 46s ease-in-out infinite alternate; }
+.mesh i:nth-child(3) { left: 18vmax; bottom: -30vmax; background: var(--ambient-5); animation: mesh-c 52s ease-in-out infinite alternate; }
+@keyframes mesh-a { to { translate: 22vmax 16vmax; } }
+@keyframes mesh-b { to { translate: -26vmax 12vmax; } }
+@keyframes mesh-c { to { translate: 24vmax -16vmax; } }
+html[data-theme=day] .mesh i { opacity: .22; }
+html.pure-black .mesh i { opacity: .12; }
+html.pure-black, html.pure-black body { background: #000; }
+html.pure-black { --panel: #050506; --panel-2: #0a0a0c; --line: #1a1a1e; --glass: rgba(4, 4, 6, .78); --flyout: rgba(4, 4, 6, .985); --chip: rgba(255, 255, 255, .07); }
+html.pure-black .glass, html.pure-black dialog { background-color: #050506; }
+
+/* ---- glowing gradient edges ---- */
+.app .controls::before, #albumDialog::before { content: ""; position: absolute; inset: 0; z-index: 3; padding: 1.5px; border-radius: inherit; background: conic-gradient(from 210deg, var(--ambient-1), var(--ambient-3), var(--ambient-5), var(--ambient-2), var(--ambient-1)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask-composite: exclude; opacity: .55; pointer-events: none; }
+html[data-theme=day] .app .controls::before, html[data-theme=day] #albumDialog::before { opacity: .4; }
+
+/* ---- type ---- */
+.brand, .panel-title, .q-label, .pp-top h3, #albumDialog .picker-head h2, .stage h1, .stage h2, .count-output strong { font-family: var(--display); }
+#albumDialog .picker-head h2, .stage h1 { font-variation-settings: "wght" var(--wght, 560), "wdth" var(--wdth, 100); letter-spacing: -.03em; }
+.kin { transition: font-variation-settings .25s ease; }
+
+/* ---- colorful tiles in the panel ---- */
+.panel-scroll > .q-row { --tile: var(--ambient-1); margin-top: 8px; border: 1px solid color-mix(in srgb, var(--tile) 30%, transparent); border-radius: 18px; background: linear-gradient(135deg, color-mix(in srgb, var(--tile) 22%, transparent), color-mix(in srgb, var(--tile) 6%, transparent)); }
+.panel-scroll > .q-row:nth-child(2) { --tile: var(--ambient-3); }
+.panel-scroll > .q-row:nth-child(3) { --tile: var(--ambient-5); }
+.panel-scroll > .q-row:nth-child(4) { --tile: var(--ambient-4); }
+.panel-scroll > .q-row:nth-child(5) { --tile: var(--ambient-2); }
+.app .q-row + .q-row { margin-top: 8px; }
+.app .q-row.is-open { background: linear-gradient(135deg, color-mix(in srgb, var(--tile) 30%, transparent), color-mix(in srgb, var(--tile) 9%, transparent)); }
+.q-icon { width: 32px; height: 32px; border-radius: 11px; background: color-mix(in srgb, var(--tile) 38%, transparent); color: var(--ink); }
+.q-toggle { grid-template-columns: 32px auto 1fr 18px; }
+.app .q-row.is-open .q-icon { color: var(--ink); }
+.app .q-row .q-toggle:hover { background: transparent; }
+
+/* ---- softer, rounder buttons ---- */
+.action, .glass-pill, .fill-pill { border-radius: 999px; }
+.action.primary, .picker-shell .action.primary { box-shadow: 0 10px 30px -10px var(--accent); transition: transform .2s ease, box-shadow .2s ease; }
+.action.primary:hover { transform: translateY(-1px); box-shadow: 0 14px 36px -8px var(--accent); }
+@media (min-width: 761px) {
+  .app .controls .actions { grid-template-columns: repeat(6, 1fr); }
+  .app .controls .actions .action { grid-column: span 3; }
+  .app .controls .actions .primary { grid-column: 1 / -1; min-height: 48px; font-size: 1rem; }
+  .app .controls .actions #shuffle, .app .controls .actions #puzzleBtn, .app .controls .actions #shareWall { grid-column: span 2; min-height: 36px; padding: 0 6px; border: 0; background: transparent; color: var(--muted); font-size: .8rem; font-weight: 560; }
+  .app .controls .actions #shuffle:hover, .app .controls .actions #puzzleBtn:hover, .app .controls .actions #shareWall:hover { background: var(--row-hover); color: var(--ink); transform: none; }
+  .app .controls .actions #installApp { grid-column: 1 / -1; }
+}
+
+/* ---- genre colors in Browse ---- */
+#albumDialog { --genre: var(--accent); }
+.browse-chip[data-g] { --c: var(--genre); }
+#albumDialog .browse-chip[data-g][aria-pressed=true] { background: var(--c); color: #14100c; box-shadow: 0 6px 20px -8px var(--c); }
+#albumDialog[data-genre] { --accent: var(--genre); --accent-ink: #14100c; }
+[data-g=hh], #albumDialog[data-genre=hh] { --genre: #ff7a45; }
+[data-g=pop], #albumDialog[data-genre=pop] { --genre: #ff5fa2; }
+[data-g=rock], #albumDialog[data-genre=rock] { --genre: #5aa9ff; }
+[data-g=rnb], #albumDialog[data-genre=rnb] { --genre: #a47cff; }
+[data-g=country], #albumDialog[data-genre=country] { --genre: #e8b04a; }
+[data-g=latin], #albumDialog[data-genre=latin] { --genre: #ff4757; }
+[data-g=edm], #albumDialog[data-genre=edm] { --genre: #2de2e6; }
+[data-g=kpop], #albumDialog[data-genre=kpop] { --genre: #7cf29a; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: .82rem; }
+.switch-row input { accent-color: var(--accent); width: 18px; height: 18px; }
+
+@media (prefers-reduced-motion: reduce) { .mesh i { animation: none; } .kin { transition: none; } }
