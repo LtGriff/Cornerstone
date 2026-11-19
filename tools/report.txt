@@ -1,3 +1,8 @@
+NO COVER   Top 25 2001: Radiohead - Amnesiac  (the app will show a generated cover)
+NO COVER   Top 25 2003: Metallica - St. Anger  (the app will show a generated cover)
+NO MATCH   Top 25 2008: Santigold - Santogold
+NO COVER   Top 25 2008: Duffy - Rockferry  (the app will show a generated cover)
+NO COVER   Top 25 2016: David Bowie - Blackstar  (the app will show a generated cover)
 NO COVER   Hip-hop & R&B 2006: Jay-Z - Kingdom Come  (the app will show a generated cover)
 NO COVER   Pop 2019: Lana Del Rey - Norman F***ing Rockwell!  (the app will show a generated cover)
 NO COVER   Pop 2020: Selena Gomez - Rare  (the app will show a generated cover)
