@@ -586,6 +586,7 @@
       .provider-credit:not([hidden]) { order: 3; width: 100%; justify-content: center; }
     }
 
+    .screen-label:empty { display: none; }
     .screen-label {
       position: absolute;
       left: 18px;
@@ -747,7 +748,7 @@
       <div class="screen-shell" id="screenShell">
         <div class="screen" id="screen">
           <div class="grid" id="grid" aria-live="polite"></div>
-          <span class="screen-label" id="screenLabel">12 tiles · four cornerstones · gentle motion</span>
+          <span class="screen-label" id="screenLabel"></span>
         </div>
       </div>
       <div class="wall-edit-actions" id="wallEditActions" hidden><span id="wallEditTitle"></span><a id="openSpotifyAlbum" href="https://open.spotify.com/" target="_blank" rel="noopener noreferrer" hidden>Open Spotify ↗</a><button id="replaceTile" type="button">Replace album</button><button id="undoReplacement" type="button" hidden>Undo replacement</button><button id="dismissTile" type="button" aria-label="Close album actions">×</button></div>
@@ -1409,7 +1410,7 @@
       function updateLabel() {
         const frameName = state.frame === 'frost' ? 'frost glass' : state.frame === 'smoke' ? 'smoke glass' : 'no frame';
         const material = state.mode === 'albums' ? (state.customAlbums ? 'favorite albums' : 'chart covers') : state.mode;
-        $('screenLabel').textContent = `${state.count} ${material} · four cornerstones · ${frameName} · ${document.documentElement.classList.contains('provider-preview') ? 'still cover preview' : state.motion ? 'gentle motion' : 'still'}`;
+        $('screenLabel').textContent = ''; // the descriptive caption is gone; the label only shows short status messages
         $('shuffle').textContent = state.mode === 'albums' ? 'Shuffle albums' : 'Shuffle colors';
         $('fillNote').hidden = state.mode !== 'albums';
         $('albumTools').hidden = state.mode !== 'albums';
