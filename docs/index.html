@@ -643,6 +643,7 @@
   <link rel="stylesheet" href="wow.css">
   <link rel="stylesheet" href="moodboard.css">
   <link rel="stylesheet" href="stage.css">
+  <link rel="stylesheet" href="phone.css">
 </head>
 <body class="onboarding">
   <div id="outerWebsiteFrame" class="outer-website-frame" aria-hidden="true"></div>
@@ -2514,6 +2515,7 @@
 
       $('desktopView').addEventListener('click', () => setDevice(false));
       $('phoneView').addEventListener('click', () => setDevice(true));
+      if (window.matchMedia('(max-width: 760px)').matches) setDevice(true);
 
       document.addEventListener('fullscreenchange', () => renderGrid({ wave: true, refreshBleed: state.mode === 'albums' }));
       const gridObserver = new ResizeObserver(() => {

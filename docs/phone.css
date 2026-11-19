@@ -1,0 +1,74 @@
+/* Cornerstone phone pass: smaller, calmer, organized */
+@media (max-width: 760px) {
+  /* main page */
+  .app .workspace { padding-top: 56px; justify-content: flex-start; gap: 8px; }
+  .app .workspace > .tip, .app .screen-label { display: none; }
+  /* the wall is the page: no preview toolbar, no device toggle, portrait wall fills the space */
+  .app .preview-toolbar { display: none; }
+  .app .workspace { padding: 58px 12px calc(var(--sheet-h) + 10px); align-items: center; }
+  .app .screen-shell.phone { height: calc(100dvh - var(--sheet-h) - 74px); max-height: none; border-radius: 22px; }
+  /* sheet text: quieter */
+  .app .controls .tip, .app .controls .q-body p, .app .controls .q-body small { font-size: .72rem; line-height: 1.35; }
+  body:not(.onboarding) .beta-dock button { min-height: 28px; padding: 0 10px; font-size: 10px; }
+  .appearance-icon, #themeToggle, .outer-controls button { width: 38px; height: 38px; }
+
+  /* the sheet: icon bubbles stop overlapping the labels, rows are slimmer */
+  .app .controls .q-icon { width: 26px; height: 26px; border-radius: 9px; }
+  .app .controls .q-icon svg { width: 15px; height: 15px; }
+  .app .controls:not(.sheet-open) .q-toggle { min-height: 38px; grid-template-columns: 26px auto auto; gap: 8px; padding: 0 12px 0 8px; font-size: .8rem; }
+  .app .controls.sheet-open .q-toggle { min-height: 46px; }
+  .app .controls .panel-title { padding-top: 0; }
+  .app .controls .actions { gap: 6px; padding: 6px 14px 10px; }
+  .app .controls .actions .action { min-height: 40px; font-size: .86rem; }
+  .app .controls .actions .primary { min-height: 44px; }
+  /* tool dock: four small tiles */
+  .app .controls .actions .dock { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; order: 9; }
+  .app .controls:not(.sheet-open) .actions .dock { display: none; }
+  .app .controls .actions .dock .action { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 52px; padding: 6px 2px !important; border: 0; border-radius: 14px; background: var(--chip) !important; color: var(--ink) !important; font-size: .68rem !important; font-weight: 560; line-height: 1.1; text-align: center; grid-column: auto !important; }
+  .app .controls .actions .dock .action i { font-style: normal; font-size: 1rem; line-height: 1; color: var(--accent); }
+  .app .controls .actions #installApp { min-height: 34px; background: transparent; font-size: .78rem; color: var(--muted); }
+}
+
+/* the picker on phones */
+@media (max-width: 600px) {
+  #albumDialog .picker-head { grid-template-columns: 34px minmax(0, 1fr) 34px; gap: 8px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
+  #albumDialog .picker-head h2 { font-size: 17px; }
+  #albumDialog h2:focus, #albumDialog h2:focus-visible { outline: none; }
+  #albumDialog .picker-back, #albumDialog .dialog-close { width: 34px; min-width: 34px; min-height: 34px; height: 34px; padding: 0; font-size: 20px; }
+  #albumDialog .picker-back span:not(:first-child) { display: none; }
+  /* cornerstones: one slim row */
+  #albumDialog .corner-guide { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 12px 5px; }
+  #albumDialog .corner-guide-head { flex: 1 1 auto; min-width: 0; }
+  #albumDialog .corner-guide h3 { font-size: 11px; line-height: 1.2; }
+  #albumDialog .edit-corners { display: none; }
+  #albumDialog .corner-slots { flex: none; gap: 5px; }
+  #albumDialog .corner-slot { flex: 0 0 32px; width: 32px; height: 32px; max-width: none; border-radius: 8px; }
+  #albumDialog .corner-slot span { display: none; }
+  /* tabs and chips */
+  #albumDialog .picker-tabs button, #albumDialog #pickerTabs button { min-height: 32px; font-size: .82rem; }
+  #albumDialog .browse-chip { min-height: 28px; padding: 0 11px; font-size: .76rem; }
+  #albumDialog .browse-years .browse-chip { min-height: 26px; padding: 0 10px; font-size: .72rem; }
+  #albumDialog .browse-genres, #albumDialog .browse-years, #albumDialog #browseDecades { gap: 5px; }
+  #albumDialog .browse-panel { gap: 4px; margin-bottom: 2px; }
+  #albumDialog .search-status { font-size: 10px; margin: 0 2px; }
+  .view-toggle { min-height: 26px; padding: 0 12px; font-size: .72rem; margin: 0 0 2px auto; }
+  /* three covers across, small captions */
+  #albumDialog .album-results { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 6px; padding: 2px 0 20px; }
+  #albumDialog .album-results.artist-results { grid-template-columns: minmax(0, 1fr) !important; gap: 6px; }
+  #albumDialog .album-card strong { font-size: .68rem; line-height: 1.2; }
+  #albumDialog .album-card span, #albumDialog .album-card small { font-size: .6rem; }
+  #albumDialog .artist-results .artist-choice { min-height: 54px; padding: 8px 10px; grid-template-columns: 42px minmax(0, 1fr) !important; }
+  .artist-choice .artist-avatar { width: 42px; height: 42px; font-size: 1.05rem; }
+  #albumDialog .album-search input { min-height: 40px; }
+  #albumDialog .album-search .action { min-height: 40px; }
+  /* footer */
+  #albumDialog .picker-footer { padding: 4px 12px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  #albumDialog .picker-footer .action, #albumDialog .picker-foot .action { min-height: 40px; font-size: .84rem; }
+  #albumDialog .vinyl-rack { flex-basis: 56px; width: 56px; height: 36px; }
+  #albumDialog .vinyl-progress { min-height: 40px; }
+}
+
+@media (max-width: 760px) {
+  .app .workspace { display: flex; flex-direction: column; align-items: center; }
+  .app .screen-shell.phone { margin-inline: auto; align-self: center; }
+}
