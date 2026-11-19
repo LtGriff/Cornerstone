@@ -55,7 +55,7 @@
     body.append(inner); q.append(body);
     const label = title || h2.textContent;
     const button = el('button', 'q-toggle', `<span class="q-icon">${icon}</span><span class="q-label">${label}</span><span class="q-sum"></span><span class="q-chev">${CHEVRON}</span>`);
-    button.type = 'button'; button.setAttribute('aria-expanded', 'false'); button.setAttribute('aria-controls', body.id);
+    button.type = 'button'; button.title = label; button.setAttribute('aria-expanded', 'false'); button.setAttribute('aria-controls', body.id);
     h2.replaceChildren(button);
     q.classList.add('q-row');
     const row = { q, button, body, summary, sum: button.querySelector('.q-sum') };
@@ -68,7 +68,7 @@
     return row;
   }
   function setOpen(row, open) {
-    if (open) rows.forEach(other => { if (other !== row) setOpen(other, false); });
+    if (open) { rows.forEach(other => { if (other !== row) setOpen(other, false); }); controls.classList.remove('flyout-actions'); }
     row.q.classList.toggle('is-open', open);
     row.button.setAttribute('aria-expanded', String(open));
     if (open && phone.matches) requestAnimationFrame(() => row.q.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
@@ -112,10 +112,15 @@
   refresh(); setTimeout(refresh, 600);
 
   // ----- desktop collapse and phone sheet -----
+  // On desktop "closed" now means a slim icon rail: rows open as small flyouts beside it.
   function setPanel(open) {
     root.classList.toggle('panel-closed', !open);
-    reopen.hidden = open || phone.matches;
+    reopen.hidden = true;
     collapse.setAttribute('aria-expanded', String(open));
+    collapse.setAttribute('aria-label', open ? 'Shrink controls to icons' : 'Expand controls');
+    controls.classList.remove('flyout-actions');
+    if (!open) rows.forEach(row => setOpen(row, false));
+    else if (!rows.some(row => row.q.classList.contains('is-open'))) setOpen(rows[0], true);
     try { localStorage.setItem('cornerstone-panel', open ? 'open' : 'closed'); } catch (_) {}
     window.dispatchEvent(new Event('resize'));
   }
@@ -125,7 +130,17 @@
     handle.setAttribute('aria-label', open ? 'Hide controls' : 'Show controls');
     if (!open) scroll.scrollTop = 0;
   }
-  collapse.addEventListener('click', () => setPanel(false));
+  collapse.addEventListener('click', () => setPanel(root.classList.contains('panel-closed')));
+  // rail: a Save button opens the action buttons as a flyout, and a click elsewhere closes any flyout
+  const railSave = el('button', 'rail-save', svg('<path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/>'));
+  railSave.type = 'button'; railSave.setAttribute('aria-label', 'Save and share');
+  railSave.addEventListener('click', () => { const on = !controls.classList.contains('flyout-actions'); rows.forEach(row => setOpen(row, false)); controls.classList.toggle('flyout-actions', on); });
+  scroll.after(railSave);
+  document.addEventListener('pointerdown', event => {
+    if (phone.matches || !root.classList.contains('panel-closed') || controls.contains(event.target)) return;
+    rows.forEach(row => setOpen(row, false)); controls.classList.remove('flyout-actions');
+  });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && root.classList.contains('panel-closed') && !phone.matches && !document.querySelector('dialog[open]')) { rows.forEach(row => setOpen(row, false)); controls.classList.remove('flyout-actions'); } });
   reopen.addEventListener('click', () => setPanel(true));
   handle.addEventListener('click', () => setSheet(!controls.classList.contains('sheet-open')));
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && phone.matches && controls.classList.contains('sheet-open') && !document.querySelector('dialog[open]')) setSheet(false); });
@@ -140,7 +155,7 @@
   handle.addEventListener('click', event => { if (handle.dataset.dragged) { event.stopImmediatePropagation(); } }, true);
 
   function layoutMode() {
-    if (phone.matches) { root.classList.remove('panel-closed'); reopen.hidden = true; }
+    if (phone.matches) { root.classList.remove('panel-closed'); reopen.hidden = true; controls.classList.remove('flyout-actions'); }
     else { let saved = 'open'; try { saved = localStorage.getItem('cornerstone-panel') || 'open'; } catch (_) {} setPanel(saved !== 'closed'); setSheet(false); }
   }
   phone.addEventListener('change', layoutMode); layoutMode();

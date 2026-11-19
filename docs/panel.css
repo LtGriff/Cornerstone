@@ -1,15 +1,15 @@
 /* Cornerstone control panel: floating glass on desktop, bottom sheet on phones.
    Selectors start with .app so they outrank the older sidebar rules without !important. */
-:root { --panel-w: 352px; --sheet-h: 150px; --glass: rgba(24, 24, 29, .62); --glass-edge: rgba(255, 255, 255, .11); --row-hover: rgba(255, 255, 255, .06); --row-open: rgba(255, 255, 255, .05); --chip: rgba(255, 255, 255, .08); --seg-on: rgba(255, 255, 255, .17); }
-html[data-theme=day] { --glass: rgba(250, 251, 250, .7); --glass-edge: rgba(255, 255, 255, .9); --row-hover: rgba(30, 38, 50, .06); --row-open: rgba(30, 38, 50, .045); --chip: rgba(30, 38, 50, .07); --seg-on: #fff; }
+:root { --flyout: rgba(22, 23, 28, .97); --panel-w: 352px; --sheet-h: 150px; --glass: rgba(24, 24, 29, .62); --glass-edge: rgba(255, 255, 255, .11); --row-hover: rgba(255, 255, 255, .06); --row-open: rgba(255, 255, 255, .05); --chip: rgba(255, 255, 255, .08); --seg-on: rgba(255, 255, 255, .17); }
+html[data-theme=day] { --flyout: rgba(250, 251, 250, .98); --glass: rgba(250, 251, 250, .7); --glass-edge: rgba(255, 255, 255, .9); --row-hover: rgba(30, 38, 50, .06); --row-open: rgba(30, 38, 50, .045); --chip: rgba(30, 38, 50, .07); --seg-on: #fff; }
 
 /* ---- layout: the wall is the page, the panel floats on top ---- */
 .app { display: block; min-height: 100dvh; }
 .app .controls { position: fixed; z-index: 30; left: 16px; top: 16px; bottom: auto; width: var(--panel-w); max-height: calc(100dvh - 88px); min-height: 0; display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--glass-edge); border-radius: 26px; background: var(--glass); backdrop-filter: blur(30px) saturate(1.5); -webkit-backdrop-filter: blur(30px) saturate(1.5); box-shadow: 0 24px 70px rgba(0, 0, 0, .4), inset 0 1px rgba(255, 255, 255, .1); transition: transform .32s cubic-bezier(.2, .8, .2, 1), opacity .2s ease; }
 html[data-theme=day] .app .controls { background: var(--glass); box-shadow: 0 24px 70px rgba(54, 64, 82, .2), inset 0 1px #fff; }
-html.panel-closed .app .controls { transform: translateX(calc(-100% - 24px)); opacity: 0; pointer-events: none; visibility: hidden; transition: transform .32s cubic-bezier(.2, .8, .2, 1), opacity .2s ease, visibility 0s .32s; }
+
 .app .workspace { min-height: 100dvh; padding: 60px 40px 36px calc(var(--panel-w) + 64px); transition: padding .32s cubic-bezier(.2, .8, .2, 1); }
-html.panel-closed .app .workspace { padding-left: 40px; }
+html.panel-closed .app .workspace { padding-left: 120px; }
 .app .screen-shell.phone { width: auto; height: min(calc(100dvh - 190px), 800px); aspect-ratio: 9 / 18.5; }
 
 /* ---- header ---- */
@@ -204,4 +204,29 @@ html[data-theme=day] #albumDialog .picker-tabs button[aria-selected=true] { box-
   #albumDialog .corner-guide p { display: none; }
   #albumDialog .corner-guide { padding: 8px 10px; }
   #albumDialog .corner-slot { flex-basis: 44px; width: 44px; height: 44px; }
+}
+
+/* ---- slim icon rail (desktop, panel collapsed) ---- */
+.rail-save { display: none; }
+@media (min-width: 761px) {
+  html.panel-closed { --panel-w: 64px; }
+  html.panel-closed .app .controls { overflow: visible; max-height: none; border-radius: 22px; padding-bottom: 6px; }
+  html.panel-closed .panel-head { flex-direction: column-reverse; gap: 6px; padding: 10px 0 4px; }
+  html.panel-closed .panel-head .brand { display: none; }
+  html.panel-closed .panel-collapse svg { transform: rotate(180deg); }
+  html.panel-closed .panel-scroll { overflow: visible; padding: 2px 6px; }
+  html.panel-closed .panel-scroll > .tip { display: none; }
+  html.panel-closed .app .q-row { position: relative; }
+  html.panel-closed .q-toggle { grid-template-columns: 1fr; justify-items: center; min-height: 48px; padding: 0; }
+  html.panel-closed .q-label, html.panel-closed .q-sum, html.panel-closed .q-chev { display: none; }
+  html.panel-closed .q-toggle { position: relative; }
+  html.panel-closed .app .q-row.is-open { background: var(--row-open); }
+  html.panel-closed .app .q-row.is-open > .q-body { position: absolute; z-index: 5; left: calc(100% + 14px); top: -6px; width: 320px; display: block; border: 1px solid var(--glass-edge); border-radius: 20px; background: var(--flyout); backdrop-filter: blur(30px) saturate(1.5); -webkit-backdrop-filter: blur(30px) saturate(1.5); box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+  html.panel-closed .app .q-row:not(.is-open) > .q-body { display: none; }
+  html.panel-closed .app .q-row.is-open .q-inner { padding: 16px 16px 18px; overflow: visible; }
+  html.panel-closed .rail-save { display: grid; place-items: center; width: 100%; height: 48px; border: 0; background: transparent; color: var(--muted); cursor: pointer; border-radius: 16px; }
+  html.panel-closed .rail-save:hover, html.panel-closed .flyout-actions .rail-save { background: var(--row-hover); color: var(--ink); }
+  html.panel-closed .app .controls > .actions { display: none; }
+  html.panel-closed .app .controls.flyout-actions > .actions { display: grid; position: absolute; z-index: 5; left: calc(100% + 14px); bottom: 0; width: 300px; padding: 14px; border: 1px solid var(--glass-edge); border-radius: 20px; background: var(--flyout); backdrop-filter: blur(30px) saturate(1.5); -webkit-backdrop-filter: blur(30px) saturate(1.5); box-shadow: 0 24px 70px rgba(0, 0, 0, .4); }
+  .app .controls { box-shadow: 0 24px 70px rgba(0, 0, 0, .4), 0 0 60px -18px color-mix(in srgb, var(--ambient-1) 55%, transparent), inset 0 1px rgba(255, 255, 255, .1); }
 }
