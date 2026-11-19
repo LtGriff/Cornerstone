@@ -1774,7 +1774,8 @@
           title.textContent = album.title;
           const artist = document.createElement('span');
           artist.textContent = [album.artist, album.year, releaseFilter === 'more' ? album.releaseType : null].filter(Boolean).join(' · ');
-          card.append(image, title, artist);
+          const disc = document.createElement('i'); disc.className = 'vinyl-disc'; disc.setAttribute('aria-hidden', 'true');
+          card.append(disc, image, title, artist);
           card.addEventListener('click', () => {
             if (replacementTarget) {
               if (!album.art || album.artworkUnavailable) { $('albumSearchStatus').textContent = 'This cover is unavailable. Choose another album or add your own cover.'; return; }
@@ -1820,7 +1821,11 @@
           name.textContent = artist.name;
           const details = document.createElement('span');
           details.textContent = [artist.disambiguation, artist.country, artist.type].filter(Boolean).join(' · ') || 'Artist';
-          button.append(name, details);
+          const avatar = document.createElement('span');
+          avatar.className = 'artist-avatar'; avatar.setAttribute('aria-hidden', 'true');
+          avatar.textContent = (artist.name.match(/[\p{L}\p{N}]/u) || ['♪'])[0].toUpperCase();
+          avatar.style.setProperty('--h', String([...artist.name].reduce((sum, ch) => (sum * 31 + ch.charCodeAt(0)) % 360, 7)));
+          button.append(avatar, name, details);
           button.addEventListener('click', () => void loadArtistAlbums(artist));
           container.append(button);
         });
@@ -1952,7 +1957,7 @@
       // ---- Browse tab: hand-picked popular albums by genre and year ----
       // catalog.json comes from tools/build-catalog.mjs. Entries with an mbid (and optional local thumb) load instantly;
       // entries without one are looked up on demand through the shared, cached MusicBrainz queue.
-      let browseCatalog = null, browseGenre = 'all', browseYear = null, browseSerial = 0, fillSerial = 0, fillBusy = false;
+      let browseCatalog = null, browseGenre = 'all', browseYear = null, browseDecade = 'all', browseSerial = 0, fillSerial = 0, fillBusy = false;
       const pickerMain = document.querySelector('#albumDialog .picker-main');
       async function loadBrowseCatalog() {
         if (browseCatalog) return browseCatalog;
@@ -1970,9 +1975,16 @@
         const genres = $('browseGenres'), years = $('browseYears');
         const chip = (label, pressed, onClick) => { const button = document.createElement('button'); button.type = 'button'; button.className = 'browse-chip'; button.textContent = label; button.setAttribute('aria-pressed', String(pressed)); button.addEventListener('click', onClick); return button; };
         genres.replaceChildren(chip('All genres', browseGenre === 'all', () => { browseGenre = 'all'; void showBrowse(); }), ...browseGenreKeys(catalog).map(key => chip(catalog.genres[key].label || key, browseGenre === key, () => { browseGenre = key; void showBrowse(); })));
-        const list = browseYearsFor(catalog, browseGenre);
-        if (!list.includes(browseYear)) browseYear = list[0] || null;
-        years.replaceChildren(...list.map(year => chip(year, year === browseYear, () => { browseYear = year; void showBrowse(); })));
+        const everyYear = browseYearsFor(catalog, browseGenre), decadeOf = year => Math.floor(Number(year) / 10) * 10;
+        const decades = [...new Set(everyYear.map(decadeOf))].sort((a, b) => b - a);
+        if (browseDecade !== 'all' && !decades.includes(browseDecade)) browseDecade = 'all';
+        let decadeRow = document.getElementById('browseDecades');
+        if (!decadeRow) { decadeRow = document.createElement('div'); decadeRow.id = 'browseDecades'; decadeRow.className = 'browse-years'; decadeRow.setAttribute('role', 'group'); decadeRow.setAttribute('aria-label', 'Decade'); years.before(decadeRow); }
+        decadeRow.replaceChildren(chip('All years', browseDecade === 'all', () => { browseDecade = 'all'; browseYear = null; void showBrowse(); }), ...decades.map(decade => chip(`${decade}s`, browseDecade === decade, () => { browseDecade = decade; browseYear = 'all'; void showBrowse(); })));
+        const list = browseDecade === 'all' ? everyYear : everyYear.filter(year => decadeOf(year) === browseDecade);
+        if (browseYear === 'all' && browseDecade === 'all') browseYear = list[0] || null;
+        if (browseYear !== 'all' && !list.includes(browseYear)) browseYear = list[0] || null;
+        years.replaceChildren(...(browseDecade === 'all' ? [] : [chip('Whole decade', browseYear === 'all', () => { browseYear = 'all'; void showBrowse(); })]), ...list.map(year => chip(year, year === browseYear, () => { browseYear = year; void showBrowse(); })));
         years.querySelector('[aria-pressed=true]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
       }
       async function browseRecord(entry, signal) {
@@ -1997,7 +2009,8 @@
         if (!browseGenreKeys(catalog).length) { $('albumSearchStatus').textContent = 'Browse isn’t available right now. Use Search to find albums.'; $('browseGenres').replaceChildren(); $('browseYears').replaceChildren(); return; }
         if (!browseYear) browseYear = browseYearsFor(catalog, 'all')[0];
         renderBrowseControls(catalog);
-        const entries = browseEntriesFor(catalog, browseGenre, browseYear);
+        const yearsShown = browseYear === 'all' ? browseYearsFor(catalog, browseGenre).filter(year => Math.floor(Number(year) / 10) * 10 === browseDecade) : [browseYear];
+        const entries = yearsShown.flatMap(year => browseEntriesFor(catalog, browseGenre, year));
         albumSearchResults = []; releaseFilter = 'albums'; activeArtist = null;
         $('albumResults').classList.remove('artist-results'); $('albumResults').replaceChildren();
         $('albumSearchStatus').textContent = cornersIncomplete() ? 'Pick four albums for your wall’s corners.' : 'Tap to add. Tap again to remove.';
@@ -2008,8 +2021,9 @@
             if (serial !== browseSerial) return;
             if (!record) continue;
             albumSearchResults = [...albumSearchResults, record]; shown++;
-            renderAlbumResults();
+            if (yearsShown.length === 1 || shown % 8 === 0) renderAlbumResults();
           }
+          if (yearsShown.length > 1 && serial === browseSerial) renderAlbumResults();
         } catch (error) { if (error.name === 'AbortError') return; }
         if (serial === browseSerial && !shown) $('albumSearchStatus').textContent = 'Couldn’t load these albums just now. Check your connection and tap the year again.';
       }
