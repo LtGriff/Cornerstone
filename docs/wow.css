@@ -1,0 +1,17 @@
+/* Cornerstone delight: poster view, confetti, fly-to-wall */
+@media (min-width: 1100px) and (min-height: 640px) { .vinyl-flight { display: none !important; } }
+.confetti { position: fixed; inset: 0; z-index: 9999; pointer-events: none; }
+.poster-dialog { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--ambient-3) 28%, #08080a), #08080a 70%); color: var(--ink); backdrop-filter: none; }
+.poster-dialog[open] { display: grid; place-items: center; }
+.poster-dialog::backdrop { background: #000; }
+.poster-frame { display: grid; gap: clamp(14px, 3vh, 26px); padding: clamp(14px, 2.4vmin, 26px); border-radius: 6px; background: linear-gradient(135deg, var(--ambient-1), var(--ambient-3), var(--ambient-5)); box-shadow: 0 40px 100px rgba(0, 0, 0, .7), 0 0 80px -20px var(--ambient-3); max-width: 94vw; }
+.poster-mat { display: grid; gap: clamp(12px, 2.6vh, 22px); padding: clamp(14px, 3vmin, 34px); background: #f2f2f0; color: #17181c; }
+.poster-grid { display: grid; grid-template-columns: repeat(var(--cols), 1fr); aspect-ratio: var(--cols) / var(--rows); width: min(calc(94vw - 120px), calc((100vh - 210px) * var(--cols) / var(--rows))); background: #17181c; }
+.poster-grid img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.poster-caption { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 0; }
+.poster-caption strong { font-family: var(--display, inherit); font-size: clamp(1rem, 2.2vmin, 1.5rem); font-weight: 650; letter-spacing: -.02em; }
+.poster-caption span { font-size: clamp(.7rem, 1.5vmin, .9rem); color: #55585f; }
+.poster-close { position: fixed; top: calc(14px + env(safe-area-inset-top)); right: 14px; min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; font: inherit; font-weight: 600; cursor: pointer; backdrop-filter: blur(12px); }
+.poster-close:hover { background: rgba(255, 255, 255, .24); }
+@media (min-width: 761px) { .app .controls .actions { grid-template-columns: repeat(12, 1fr); } .app .controls .actions .action { grid-column: span 6; } .app .controls .actions .primary { grid-column: 1 / -1; } .app .controls .actions #shuffle, .app .controls .actions #puzzleBtn, .app .controls .actions #shareWall, .app .controls .actions #posterBtn { grid-column: span 3; } .app .controls .actions #posterBtn { min-height: 36px; padding: 0 6px; border: 0; background: transparent; color: var(--muted); font-size: .8rem; font-weight: 560; } .app .controls .actions #posterBtn:hover { background: var(--row-hover); color: var(--ink); transform: none; } }
+@media (max-width: 760px) { .app .controls .actions #posterBtn { display: none; } }
