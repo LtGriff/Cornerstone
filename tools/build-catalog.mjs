@@ -41,7 +41,7 @@ async function polite(url, gap, headers = {}) {
 const norm = s => String(s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '');
 const plain = s => String(s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 const firstArtist = a => a.split(/\s*(?:&| and |,|feat\.)\s*/i)[0];
-const same = (a, b) => { const x = norm(a), y = norm(b); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); };
+const same = (a, b) => { const x = norm(a), y = norm(b); if (!x || !y) return String(a).trim().toLowerCase() === String(b).trim().toLowerCase(); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); };
 
 async function search(query, limit = 8) {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -95,9 +95,9 @@ for (const [key, genre] of Object.entries(seed.genres)) {
   catalog.genres[key] = { label: genre.label, years: {} };
   for (const [year, albums] of Object.entries(genre.years)) {
     const out = [];
-    for (const [artist, title] of albums) {
+    for (const [artist, title, altArtist, altTitle] of albums) { // optional 3rd/4th items: the spelling MusicBrainz uses
       const id = `${artist}|${title}`;
-      if (!cache[id] || cache[id].miss) cache[id] = await lookup(artist, title); // misses are retried on every run
+      if (!cache[id] || cache[id].miss) cache[id] = await lookup(altArtist || artist, altTitle || title); // misses are retried on every run
       const hit = cache[id];
       done++;
       if (done % 10 === 0) { await writeFile(cachePath, JSON.stringify(cache)); console.log(`${done}/${total}`); }
