@@ -72,3 +72,6 @@
   .app .workspace { display: flex; flex-direction: column; align-items: center; }
   .app .screen-shell.phone { margin-inline: auto; align-self: center; }
 }
+
+/* Wallpaper Engine is a PC thing: keep the phone sheet short */
+@media (max-width: 760px) { .app .controls .actions #wallpaperLink { display: none; } }
