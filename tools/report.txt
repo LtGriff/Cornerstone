@@ -1,5 +1,26 @@
+NO COVER   Hip-hop & R&B 2006: Jay-Z - Kingdom Come  (the app will show a generated cover)
+NO MATCH   Pop 2002: Pink - Missundaztood
 NO MATCH   Pop 2006: Pink - I'm Not Dead
 NO MATCH   Pop 2008: Pink - Funhouse
 NO MATCH   Pop 2011: Ed Sheeran - +
+NO MATCH   Pop 2012: Pink - The Truth About Love
 NO MATCH   Pop 2017: Ed Sheeran - ÷
+NO MATCH   Pop 2019: Lana Del Rey - Norman F***ing Rockwell!
 NO COVER   Pop 2020: Selena Gomez - Rare  (the app will show a generated cover)
+NO COVER   R&B & soul 2005: Jamie Foxx - Unpredictable  (the app will show a generated cover)
+NO MATCH   R&B & soul 2007: Jill Scott - The Real Thing: Words and Sounds Vol. 3
+NO COVER   R&B & soul 2009: Keri Hilson - In a Perfect World...  (the app will show a generated cover)
+NO MATCH   R&B & soul 2020: Chloe x Halle - Ungodly Hour
+NO MATCH   R&B & soul 2022: Muni Long - Public Displays of Affection: The Album
+NO COVER   Country 2005: Carrie Underwood - Some Hearts  (the app will show a generated cover)
+NO COVER   Latin 2007: Wisin & Yandel - Los Extraterrestres  (the app will show a generated cover)
+CHECK      Latin 2008: Daddy Yankee - Talento de Barrio  ->  matched "Daddy Yankee - Talento de Barrio: M.U.N.D.I.A.L." (score 93)
+NO COVER   Latin 2012: Juanes - MTV Unplugged  (the app will show a generated cover)
+NO MATCH   Latin 2014: Calle 13 - Multi Viral
+NO MATCH   Latin 2023: Fuerza Regida - Pa' Las Baddies
+NO COVER   Electronic & dance 2005: Gorillaz - Demon Days  (the app will show a generated cover)
+NO MATCH   Electronic & dance 2007: Justice - †
+NO MATCH   Electronic & dance 2015: Skrillex & Diplo - Skrillex and Diplo Present Jack Ü
+NO MATCH   K-pop 2019: BTS - Map of the Soul: Persona
+NO MATCH   K-pop 2023: Stray Kids - 5-Star
+NO MATCH   K-pop 2025: Various Artists - KPop Demon Hunters
