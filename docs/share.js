@@ -96,6 +96,26 @@
     return true;
   }
 
+  // Wallpaper mode (Wallpaper Engine, kiosk screens): apply the wall in the link without asking or opening the editor.
+  async function applyQuiet() {
+    const shared = await decode(location.hash.slice(3));
+    const A = window.CornerstoneApp;
+    A.setAlbums(shared.albums);
+    Object.assign(A.state, { mode: 'albums', detail: shared.detail, frame: shared.frame, frameInches: shared.frameInches, motion: shared.motion, speed: shared.speed });
+    return true;
+  }
+  const wallpaperLinkFor = code => `${location.origin}${location.pathname}?wallpaper#w=${code}`;
+  async function wallpaperLink() {
+    const A = window.CornerstoneApp;
+    if (A.state.mode !== 'albums') { say('Wallpaper links need an album wall. Switch Fill to Albums first.'); return; }
+    const packed = await encode(A.state);
+    if (!packed) { say('Pick at least 4 albums from search or Browse first.'); return; }
+    const url = wallpaperLinkFor(packed.code);
+    try { await navigator.clipboard.writeText(url); say(`Wallpaper link copied. In Wallpaper Engine: Change Wallpaper → Open From URL → paste${packed.dropped ? ` · ${packed.dropped} imported albums can't be included` : ''}.`); }
+    catch (_) { window.prompt('Copy this link, then paste it into Wallpaper Engine (Open From URL)', url); }
+  }
+  document.addEventListener('click', event => { if (event.target.closest('#wallpaperLink')) void wallpaperLink(); });
+
   async function share(button) {
     const A = window.CornerstoneApp;
     if (A.state.mode !== 'albums') { say('Sharing works with album walls. Switch Fill to Albums first.'); return; }
@@ -110,5 +130,5 @@
   }
   document.addEventListener('click', event => { const button = event.target.closest('#shareWall'); if (button) void share(button); });
 
-  window.CornerstoneShare = { encode, decode, hasLink, open, linkFor };
+  window.CornerstoneShare = { encode, decode, hasLink, open, linkFor, applyQuiet, wallpaperLinkFor };
 })();
