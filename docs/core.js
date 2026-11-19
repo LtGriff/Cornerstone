@@ -149,6 +149,24 @@
     return (data.artists||[]).map(a=>({id:a.id,name:a.name,country:a.country,type:a.type,disambiguation:a.disambiguation,score:Number(a.score)||0}))
       .sort((a,b)=>Number(normal(b.name)===wanted)-Number(normal(a.name)===wanted)||Number(normal(b.name).startsWith(wanted))-Number(normal(a.name).startsWith(wanted))||b.score-a.score);
   }
+  // Find albums by title (so typing "GNX" finds the album, not only an artist). Same shared queue and cache as artists().
+  async function searchAlbums(term,signal){
+    const words=String(term).replace(/["\\+\-&|!(){}\[\]^~*?:\/]/g,' ').split(/\s+/).filter(Boolean).slice(0,6);
+    if(!words.length)return [];
+    const q='releasegroup:('+words.map(w=>'"'+w+'"').join(' AND ')+')';
+    const data=await catalog('https://musicbrainz.org/ws/2/release-group/?query='+encodeURIComponent(q)+'&fmt=json&limit=30',signal);
+    const wanted=normal(term);
+    const records=(data['release-groups']||[]).map(g=>{
+      const credits=g['artist-credit']||[],name=credits.map(c=>(c.name||c.artist?.name||'')+(c.joinphrase||'')).join('').trim();
+      if(!name||!g.title)return null;
+      const rec=releaseRecord(g,name,credits[0]?.artist?.id);
+      rec.category=releaseCategory(g);
+      rec.releaseType=[g['primary-type'],...(g['secondary-types']||[])].filter(Boolean).join(' \u00b7 ');
+      rec.matchScore=Number(g.score)||0;rec.exactTitle=normal(g.title)===wanted;
+      return rec;
+    }).filter(Boolean);
+    return unique(records,30).sort((a,b)=>Number(b.exactTitle)-Number(a.exactTitle)||releaseOrder[a.category]-releaseOrder[b.category]||b.matchScore-a.matchScore);
+  }
   function releaseCategory(group){
     const secondary=group['secondary-types']||[];
     if(secondary.length)return 'more';
@@ -317,6 +335,6 @@
     const top=[...weights.values()].sort((a,b)=>b.weight-a.weight).slice(0,8);
     return {albums:collection,artists:top,pools:top.map(()=>[]),suggestions:[],stats:{pages,artistPages,tracks:trackIds.size,ranges,limited:!!limitReason,limitReason,missingArtwork}};
   }
-  const api={generatedCover,lookupAlbum,releaseRecord,normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify,needsSpotifyArtwork,restoreSpotifyArtwork};
+  const api={generatedCover,lookupAlbum,searchAlbums,releaseRecord,normal,identity,unique,shape,corners,cornerToStorage,vividColor,validColorHex,colorFromHex,cornerPalette,wallpaperCornerPalette,ordered,arrange,recommend,get,put,artists,albums,betaAlbum,displayArt,releaseCategory,officialReleaseCandidates,resolveArtwork,discoverArtistAlbums,loadImage,analyze,analyzeAll,colorValues,importSpotify,needsSpotifyArtwork,restoreSpotifyArtwork};
   root.CornerstoneCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
