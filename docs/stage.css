@@ -1,0 +1,30 @@
+/* Cornerstone stage: frosted glass over a blurred mosaic of your covers (desktop only) */
+@media (min-width: 761px) {
+  .stage-bg { position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity 1.2s ease; background: #08080b; }
+  html.has-stage-bg .stage-bg { opacity: 1; }
+  .stage-bg { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 1fr; filter: blur(52px) saturate(1.5) brightness(.5); transform: scale(1.35); }
+  .stage-bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  html[data-theme=day] .stage-bg { display: none; }
+  html.has-stage-bg:not([data-theme=day]) { background: #0b0b0d; }
+  html.has-stage-bg:not([data-theme=day]) body { background: transparent; }
+  body.wallpaper-mode .stage-bg { display: none; }
+
+  /* the side panel: real frost, full height, soft light edge */
+  html:not(.panel-closed) .app .controls { height: calc(100dvh - 84px); max-height: none; background: linear-gradient(165deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .04) 55%), rgba(12, 12, 18, .56); backdrop-filter: blur(36px) saturate(1.9); -webkit-backdrop-filter: blur(36px) saturate(1.9); border-color: rgba(255, 255, 255, .2); box-shadow: 0 30px 90px rgba(0, 0, 0, .5), inset 0 1px rgba(255, 255, 255, .22), inset 0 0 0 1px rgba(255, 255, 255, .04); }
+  html:not(.panel-closed) .panel-scroll > .q-row { background: linear-gradient(135deg, color-mix(in srgb, var(--tile, #fff) 26%, transparent), rgba(255, 255, 255, .05)); border: 1px solid rgba(255, 255, 255, .12); }
+  html:not(.panel-closed) .app .controls .actions { margin-top: auto; background: linear-gradient(0deg, rgba(0, 0, 0, .18), transparent); }
+
+  /* the dock of small tools: five even tiles */
+  .app .controls .actions .dock { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 2px; }
+  .app .controls .actions .dock .action { grid-column: span 2 !important; display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 62px; padding: 8px 4px !important; border: 1px solid rgba(255, 255, 255, .1) !important; border-radius: 16px; background: rgba(255, 255, 255, .06) !important; color: var(--ink) !important; font-size: .72rem !important; font-weight: 560; line-height: 1.15; text-align: center; transition: background .15s ease, transform .15s ease; }
+  .app .controls .actions .dock .action:nth-child(n+4) { grid-column: span 3 !important; min-height: 50px; }
+  .app .controls .actions .dock .action:hover { background: rgba(255, 255, 255, .14) !important; transform: translateY(-2px); }
+  .app .controls .actions .dock .action i { font-style: normal; font-size: 1.15rem; line-height: 1; color: var(--accent); }
+  html.panel-closed .app .controls .actions .dock { display: none; }
+
+  /* the wall: a glass bezel that reflects like a display on a polished table */
+  .app .preview-toolbar { padding: 8px 8px 8px 18px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; background: rgba(12, 12, 18, .5); backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); color: var(--ink); }
+  .app .screen-shell:not(.phone) { box-shadow: 0 40px 120px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .16), 0 0 140px color-mix(in srgb, var(--ambient-3, #888) 40%, transparent); }
+  .app .workspace > .tip { display: none; }
+  .app .controls .actions .dock { order: 9; }
+}

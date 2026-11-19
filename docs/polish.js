@@ -79,6 +79,27 @@
       });
     }
     results.addEventListener('scroll', () => requestAnimationFrame(scale), { passive: true });
+    // Input: wheel, drag (mouse) and arrow buttons; touch swipe already scrolls natively.
+    const carousel = () => results.classList.contains('view-carousel') && !results.classList.contains('artist-results');
+    results.addEventListener('wheel', event => {
+      if (!carousel()) return;
+      const dx = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (!dx) return; event.preventDefault(); results.scrollLeft += dx;
+    }, { passive: false });
+    let drag = null;
+    results.addEventListener('pointerdown', event => { if (!carousel() || event.pointerType !== 'mouse' || event.button !== 0) return; drag = { x: event.clientX, left: results.scrollLeft, moved: false }; });
+    window.addEventListener('pointermove', event => {
+      if (!drag) return; const dx = event.clientX - drag.x;
+      if (!drag.moved && Math.abs(dx) > 6) { drag.moved = true; results.classList.add('is-dragging'); }
+      if (drag.moved) results.scrollLeft = drag.left - dx;
+    });
+    const endDrag = () => { if (!drag) return; const moved = drag.moved; drag = null; results.classList.remove('is-dragging'); if (moved) results.addEventListener('click', event => event.stopPropagation(), { capture: true, once: true }); };
+    window.addEventListener('pointerup', endDrag); window.addEventListener('pointercancel', endDrag);
+    const nav = dir => { const card = results.querySelector('.album-card'); results.scrollBy({ left: dir * ((card?.getBoundingClientRect().width || 240) + 8), behavior: 'smooth' }); };
+    const wrap = document.createElement('div'); wrap.className = 'car-wrap'; results.before(wrap); wrap.append(results);
+    [-1, 1].forEach(dir => { const b = document.createElement('button'); b.type = 'button'; b.className = 'car-nav'; b.dataset.dir = String(dir); b.setAttribute('aria-label', dir < 0 ? 'Previous albums' : 'Next albums'); b.textContent = dir < 0 ? '‹' : '›'; b.hidden = true; b.addEventListener('click', () => nav(dir)); wrap.append(b); });
+    const syncNav = () => wrap.querySelectorAll('.car-nav').forEach(b => { b.hidden = !carousel(); });
+    new MutationObserver(syncNav).observe(results, { attributes: true, attributeFilter: ['class'] });
     new MutationObserver(() => { toggle.hidden = !results.querySelector('.album-card'); requestAnimationFrame(scale); }).observe(results, { childList: true });
   }
 
