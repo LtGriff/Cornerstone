@@ -1,0 +1,20 @@
+/* Cornerstone moodboard (reuses the puzzle board look) */
+.mood-dialog .mb-title { font-family: var(--display, inherit); font-size: 1.05rem; letter-spacing: -.01em; }
+.mb-apply, .mb-buttons button { min-height: 44px; padding: 0 16px; border: 1px solid var(--line, #444); border-radius: 999px; background: var(--panel-2, #20232a); color: inherit; font: inherit; font-size: .9rem; cursor: pointer; }
+.mb-apply { border-color: var(--accent, #d64c75); background: var(--accent, #d64c75); color: var(--accent-ink, #fff); font-weight: 650; }
+.mb-apply:disabled, .mb-buttons button:disabled { opacity: .4; cursor: default; }
+.mb-buttons button[data-mb=back] { border-color: var(--accent, #d64c75); background: var(--accent, #d64c75); color: var(--accent-ink, #fff); font-weight: 650; }
+.mb-buttons .mb-lift.is-on { border-color: var(--accent, #d64c75); }
+.mb-foot { display: grid; gap: 8px; padding: 6px 14px calc(14px + env(safe-area-inset-bottom)); width: min(100%, 760px); align-self: center; }
+.mb-foot .pz-hint { flex: none; }
+.mb-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.mb-tray { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 10px 4px 4px; border: 1px dashed var(--line, #555); border-radius: 12px; font-size: .85rem; color: var(--muted, #aab); }
+.mb-tray.has-album { border-style: solid; border-color: var(--accent, #d64c75); color: var(--ink, #fff); }
+.mb-tray img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; }
+.mb-tray-empty { padding-left: 8px; }
+.pz-board.is-picking .pz-tile.is-pickable { animation: mb-pulse 1.1s ease-in-out infinite; }
+.pz-board.is-picking .pz-tile.is-locked { opacity: .55; }
+@keyframes mb-pulse { 50% { scale: .94; } }
+@media (min-width: 761px) { .app .controls .actions #moodBtn { grid-column: span 4; min-height: 36px; padding: 0 6px; border: 0; background: transparent; color: var(--muted); font-size: .8rem; font-weight: 560; } .app .controls .actions #moodBtn:hover { background: var(--row-hover); color: var(--ink); transform: none; } .app .controls .actions #shuffle, .app .controls .actions #puzzleBtn, .app .controls .actions #shareWall, .app .controls .actions #posterBtn { grid-column: span 4; } }
+@media (max-width: 760px) { .app .controls .actions #moodBtn { grid-column: span 2; min-height: 36px; padding: 0 6px; border: 0; background: transparent; color: var(--muted); font-size: .8rem; font-weight: 560; } }
+@media (prefers-reduced-motion: reduce) { .pz-board.is-picking .pz-tile.is-pickable { animation: none; } }
