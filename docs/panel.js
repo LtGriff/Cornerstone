@@ -164,5 +164,5 @@
   const measure = () => { if (phone.matches && !controls.classList.contains('sheet-open')) root.style.setProperty('--sheet-h', `${controls.offsetHeight}px`); };
   new ResizeObserver(measure).observe(controls); measure();
   // starting something that needs the full screen should tuck the sheet away
-  ['puzzleBtn', 'fullscreen'].forEach(id => $(id)?.addEventListener('click', () => setSheet(false)));
+  ['puzzleBtn', 'moodBtn', 'fullscreen'].forEach(id => $(id)?.addEventListener('click', () => setSheet(false)));
 })();

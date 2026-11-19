@@ -641,6 +641,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&display=swap">
   <link rel="stylesheet" href="polish.css">
   <link rel="stylesheet" href="wow.css">
+  <link rel="stylesheet" href="moodboard.css">
 </head>
 <body class="onboarding">
   <div id="outerWebsiteFrame" class="outer-website-frame" aria-hidden="true"></div>
@@ -2563,6 +2564,7 @@
       }
 
       window.CornerstoneApp = {
+        arrangedItems: (count, columns) => arrangeWithCornerstones(state.albums, count, columns),
         state, wallpaperMode, renderGrid, applySettings, openPicker, setDevice, updateDraftCount, prepareManualOrder, undoManualSwap, resetManualOrder, clearEditHistory, refreshCornerFrameColors,
         canUndoManual:()=>!!lastManualSwap&&state.arrangement==='manual',
         manualIsCustomized:()=>validManualOrder(state.manualOrder)&&validManualOrder(state.manualBaseline)&&state.manualOrder.ids.join('|')!==state.manualBaseline.ids.join('|'),
@@ -2588,6 +2590,7 @@
   <script src="overlay.js"></script>
   <script src="polish.js"></script>
   <script src="wow.js"></script>
+  <script src="moodboard.js"></script>
   <script src="beta-ui.js"></script>
 </body>
 </html>
