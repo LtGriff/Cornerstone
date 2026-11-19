@@ -1977,7 +1977,12 @@
       }
       const browseGenreKeys = catalog => Object.keys(catalog.genres || {});
       const browseYearsFor = (catalog, genre) => [...new Set((genre === 'all' ? browseGenreKeys(catalog) : [genre]).flatMap(key => Object.keys(catalog.genres[key]?.years || {})))].sort((a, b) => b - a);
-      const browseEntriesFor = (catalog, genre, year) => (genre === 'all' ? browseGenreKeys(catalog) : [genre]).flatMap(key => (catalog.genres[key]?.years?.[year] || []).map(entry => ({ ...entry, genre: key, year })));
+      const browseEntriesFor = (catalog, genre, year) => {
+        const keys = browseGenreKeys(catalog), seen = new Set();
+        // In "All genres" the genre lists come first and Top 25 last, so an album keeps its real genre tag and shows only once.
+        const order = genre === 'all' ? keys.filter(key => key !== 'top').concat(keys.filter(key => key === 'top')) : [genre];
+        return order.flatMap(key => (catalog.genres[key]?.years?.[year] || []).map(entry => ({ ...entry, genre: key, year }))).filter(entry => { const id = `${entry.artist}|${entry.title}`.toLowerCase(); if (genre === 'all' && seen.has(id)) return false; seen.add(id); return true; });
+      };
       function renderBrowseControls(catalog) {
         const genres = $('browseGenres'), years = $('browseYears');
         const chip = (label, pressed, onClick) => { const button = document.createElement('button'); button.type = 'button'; button.className = 'browse-chip'; button.textContent = label; button.setAttribute('aria-pressed', String(pressed)); button.addEventListener('click', onClick); return button; };
@@ -2057,6 +2062,7 @@
         const years = picked.map(album => Number(album.year)).filter(Boolean), center = years.length ? years.reduce((sum, year) => sum + year, 0) / years.length : null;
         const pool = browseGenreKeys(catalog).flatMap(key => Object.keys(catalog.genres[key].years || {}).flatMap(year => browseEntriesFor(catalog, key, year)))
           .filter(entry => !draftAlbums.some(album => C.identity(album) === C.identity({ title: entry.title, artist: entry.artist })))
+          .filter((entry, index, list) => list.findIndex(other => other.artist === entry.artist && other.title === entry.title) === index)
           .map(entry => ({ entry, score: (genreCount[entry.genre] ? 1 + Math.min(genreCount[entry.genre], 5) / 5 : 0) + (center ? 1 - Math.min(Math.abs(Number(entry.year) - center), 15) / 15 : .5) + Math.random() * 1.2 }))
           .sort((a, b) => b.score - a.score);
         let added = 0, lastId = null;
