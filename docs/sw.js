@@ -1,8 +1,8 @@
 // Cornerstone service worker: lets the app install, open offline, and keep cached covers.
 // Same-origin files are fetched network-first, so a fresh deploy always wins when you're online;
 // the cache only steps in when the network is slow or gone. Cached cover thumbnails are served instantly.
-const CACHE = 'cornerstone-v9';
-const SHELL = ['./', 'index.html', 'core.js', 'studio.js', 'studio.css', 'puzzle.js', 'puzzle.css', 'panel.js', 'panel.css', 'overlay.js', 'overlay.css', 'polish.js', 'polish.css', 'wow.js', 'wow.css', 'moodboard.js', 'photos.js', 'stage.js', 'stage.css', 'moodboard.css', 'share.js', 'beta-ui.js', 'beta-config.js', 'top-songs.js', 'catalog.json', 'manifest.json',
+const CACHE = 'cornerstone-v10';
+const SHELL = ['./', 'index.html', 'core.js', 'studio.js', 'studio.css', 'puzzle.js', 'puzzle.css', 'panel.js', 'panel.css', 'overlay.js', 'overlay.css', 'polish.js', 'polish.css', 'wow.js', 'wow.css', 'moodboard.js', 'photos.js', 'stage.js', 'stage.css', 'phone.css', 'moodboard.css', 'share.js', 'beta-ui.js', 'beta-config.js', 'top-songs.js', 'catalog.json', 'manifest.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'assets/tres-phone.jpg', 'assets/tres-desktop.jpg'];
 
 self.addEventListener('install', event => {

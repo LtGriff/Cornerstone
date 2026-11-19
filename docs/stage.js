@@ -1,12 +1,12 @@
 // Cornerstone stage: a blurred mosaic of your own covers behind the glass, plus a tidy dock for the side tools.
 (function () {
   'use strict';
-  if (!matchMedia('(min-width: 761px)').matches) return;
   const grid = document.getElementById('grid'), actions = document.querySelector('.controls .actions');
+  const wide = matchMedia('(min-width: 761px)').matches;
 
-  // ---- cover glow behind everything ----
+  // ---- cover glow behind everything (desktop only) ----
   const bg = document.createElement('div'); bg.className = 'stage-bg'; bg.setAttribute('aria-hidden', 'true');
-  document.body.prepend(bg);
+  if (wide) document.body.prepend(bg);
   let timer = null;
   function sync() {
     const seen = new Set(), urls = [];
@@ -18,8 +18,7 @@
     bg.replaceChildren(...cells);
   }
   const later = () => { clearTimeout(timer); timer = setTimeout(sync, 700); };
-  if (grid) new MutationObserver(later).observe(grid, { childList: true });
-  later();
+  if (grid && wide) { new MutationObserver(later).observe(grid, { childList: true }); later(); }
 
   // ---- tool dock ----
   if (actions) {
