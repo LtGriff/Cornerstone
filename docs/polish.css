@@ -104,3 +104,18 @@ html[data-theme=day] .app .controls::before, html[data-theme=day] #albumDialog::
 .pp-years b { padding: 4px 10px; border-radius: 999px; background: var(--chip); font-size: .74rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pp-years b[data-n="0"] { background: transparent; box-shadow: inset 0 0 0 1px var(--glass-edge); color: var(--muted); }
 .pp-gap { margin: 0; color: var(--accent); font-size: .8rem; }
+
+/* ---- Round 2: artist list (one column, photo left) and carousel input ---- */
+#albumDialog .album-results.artist-results { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 8px; max-width: 680px; padding: 4px 0; overflow: visible; scroll-snap-type: none; }
+#albumDialog .artist-results .artist-choice { grid-template-columns: 60px minmax(0, 1fr) !important; min-height: 76px; padding: 10px 14px; transform: none; opacity: 1; }
+#albumDialog .artist-results .artist-choice:hover { transform: translateX(3px); }
+.artist-choice .artist-avatar { width: 60px; height: 60px; border-radius: 50%; background-size: cover; background-position: center; overflow: hidden; }
+.artist-choice .artist-avatar.has-photo { box-shadow: 0 0 0 2px var(--glass-edge, rgba(255, 255, 255, .25)); }
+.artist-choice span:not(.artist-avatar) { white-space: normal; overflow-wrap: anywhere; }
+#albumDialog .album-results.view-carousel { scroll-snap-type: x proximity; cursor: grab; }
+#albumDialog .album-results.view-carousel.is-dragging { cursor: grabbing; scroll-snap-type: none; }
+#albumDialog .album-results.view-carousel.is-dragging .album-card { pointer-events: none; }
+.car-nav { position: absolute; top: 50%; z-index: 5; width: 46px; height: 46px; margin-top: -23px; border: 0; border-radius: 50%; background: var(--flyout, #1c1d22); color: var(--ink); font-size: 1.3rem; cursor: pointer; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.car-nav[data-dir="-1"] { left: 8px; } .car-nav[data-dir="1"] { right: 8px; }
+.car-nav:hover { background: var(--seg-on); }
+.car-wrap { position: relative; }
