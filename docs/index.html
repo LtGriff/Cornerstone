@@ -787,8 +787,8 @@
           <div class="browse-years" id="browseYears" role="group" aria-label="Year"></div>
         </section>
         <form class="album-search" id="albumSearchForm">
-          <input id="albumSearch" type="search" placeholder="Try “SZA” or “Drake”" autocomplete="off" aria-label="Search artists" required>
-          <button class="action" type="submit">Find artist</button>
+          <input id="albumSearch" type="search" placeholder="Album or artist, like “GNX” or “SZA”" autocomplete="off" aria-label="Search albums or artists" required>
+          <button class="action" type="submit">Search</button>
         </form>
         <p class="search-status" id="albumSearchStatus">Choose four cornerstones, then complete your collection.</p>
         <p class="replacement-notice" id="replacementNotice" role="status" hidden></p>
@@ -1725,6 +1725,11 @@
         const previewLoaders=new WeakMap();
         albumPreviewObserver=friendBeta&&'IntersectionObserver' in window?new IntersectionObserver((entries,observer)=>{for(const entry of entries)if(entry.isIntersecting){observer.unobserve(entry.target);previewLoaders.get(entry.target)?.();}},{root:container,rootMargin:'180px'}):null;
         container.replaceChildren();
+        const mixed = pickerMain.dataset.tab === 'search' && !activeArtist && (artistSearchResults.length || albumSearchResults.length);
+        if (mixed) {
+          if (artistSearchResults.length) container.append(buildArtistSection(albumSearchResults.some(album => album.exactTitle) ? 1 : -1));
+          if (albumSearchResults.length) { const heading = document.createElement('h3'); heading.className = 'search-heading'; heading.textContent = 'Albums'; container.append(heading); }
+        }
         const filters = $('releaseFilters');
         filters.hidden = !albumSearchResults.length;
         const counts = { albums:0, eps:0, more:0 };
@@ -1812,14 +1817,16 @@
         }
       }
 
-      function renderArtistResults() {
-        const container = $('albumResults');
-        $('releaseFilters').hidden = true;
-        container.classList.add('artist-results');
-        container.replaceChildren();
-        container.classList.remove('view-carousel');
+      // Artist matches show as a compact section above/below the album matches inside the same results grid.
+      function buildArtistSection(order) {
+        const section = document.createElement('div');
+        section.className = 'search-artists artist-results';
+        section.style.order = String(order);
+        const heading = document.createElement('h3');
+        heading.className = 'search-heading'; heading.textContent = 'Artists';
+        section.append(heading);
         const photoPairs = [];
-        artistSearchResults.forEach((artist) => {
+        artistSearchResults.slice(0, 5).forEach((artist) => {
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'artist-choice';
@@ -1833,11 +1840,13 @@
           avatar.style.setProperty('--h', String([...artist.name].reduce((sum, ch) => (sum * 31 + ch.charCodeAt(0)) % 360, 7)));
           button.append(avatar, name, details);
           button.addEventListener('click', () => void loadArtistAlbums(artist));
-          container.append(button);
+          section.append(button);
           photoPairs.push([avatar, artist]);
         });
         window.CornerstonePhotos?.fill(photoPairs);
+        return section;
       }
+      function renderArtistResults() { renderAlbumResults(); }
 
       async function loadArtistAlbums(artist) {
         searchController?.abort(); searchController=new AbortController();
@@ -1898,7 +1907,7 @@
         $('releaseFilters').hidden=true;
         $('albumResults').classList.remove('artist-results');
         $('albumResults').replaceChildren();
-        $('albumSearchStatus').textContent='Find an artist. Start with four albums that define your wall.';
+        $('albumSearchStatus').textContent='Search any album or artist. Start with four albums that define your wall.';
         $('replacementNotice').hidden = !replacementTarget;
         $('replacementNotice').textContent = replacementTarget ? `Replacing ${state.albums[replacementTarget.index].title}. Choose another album below, then confirm.` : '';
         $('confirmReplacement').hidden = !replacementTarget;
@@ -1934,18 +1943,22 @@
       async function searchArtists() {
         const term=$('albumSearch').value.trim();
         searchController?.abort(); searchController=new AbortController();
-        const serial=++searchSequence;
-        activeArtist=null;
-        if(term.length<2){$('albumSearchStatus').textContent='Type at least two letters to find an artist.';return;}
+        const serial=++searchSequence, signal=searchController.signal;
+        activeArtist=null; artistSearchResults=[]; albumSearchResults=[]; releaseFilter='albums';
+        if(term.length<2){$('albumSearchStatus').textContent='Type at least two letters to find an album or artist.';$('albumResults').replaceChildren();return;}
         $('releaseFilters').hidden=true;
+        $('albumResults').classList.remove('artist-results','view-carousel');
         $('albumResults').replaceChildren();
-        $('albumSearchStatus').textContent='Finding artists…';
-        try {
-          const result=await C.artists(term,searchController.signal);
-          if(serial!==searchSequence)return;
-          artistSearchResults=result; renderArtistResults();
-          $('albumSearchStatus').textContent=result.length===1?'Choose this artist to browse releases.':result.length?'Choose the correct artist from these matches.':'No matching artists. Try another spelling.';
-        } catch(e) { if(serial===searchSequence&&e.name!=='AbortError') $('albumSearchStatus').textContent=e.message; }
+        $('albumSearchStatus').textContent='Searching albums and artists…';
+        const summarize=()=>{
+          const a=albumSearchResults.filter(album=>album.category!=='more').length||albumSearchResults.length,r=artistSearchResults.length;
+          $('albumSearchStatus').textContent=a||r?`${a?`${a} album${a===1?'':'s'}`:''}${a&&r?' and ':''}${r?`${r} artist${r===1?'':'s'}`:''} found. Tap an album to add it, or choose an artist to see all their releases.`:'No matches. Try another spelling.';
+        };
+        let failure=null,pending=2;
+        const done=()=>{ if(serial!==searchSequence)return; if(--pending===0){ if(failure&&!albumSearchResults.length&&!artistSearchResults.length)$('albumSearchStatus').textContent=failure.message; else summarize(); } };
+        // Albums first: they are what people usually type. Both run through the shared rate-limited queue.
+        C.searchAlbums(term,signal).then(result=>{ if(serial!==searchSequence)return; albumSearchResults=result; renderAlbumResults(); }).catch(e=>{ if(e.name!=='AbortError')failure=failure||e; }).finally(done);
+        C.artists(term,signal).then(result=>{ if(serial!==searchSequence)return; artistSearchResults=result; renderAlbumResults(); }).catch(e=>{ if(e.name!=='AbortError')failure=failure||e; }).finally(done);
       }
       let searchDebounce;
       $('albumSearch').addEventListener('input',()=>{
@@ -2022,7 +2035,7 @@
         renderBrowseControls(catalog);
         const yearsShown = browseYear === 'all' ? browseYearsFor(catalog, browseGenre).filter(year => browseDecade === 'all' || Math.floor(Number(year) / 10) * 10 === browseDecade) : [browseYear];
         const entries = yearsShown.flatMap(year => browseEntriesFor(catalog, browseGenre, year));
-        albumSearchResults = []; releaseFilter = 'albums'; activeArtist = null;
+        albumSearchResults = []; artistSearchResults = []; releaseFilter = 'albums'; activeArtist = null;
         $('albumResults').classList.remove('artist-results'); $('albumResults').replaceChildren();
         $('albumSearchStatus').textContent = cornersIncomplete() ? 'Pick four albums for your wall’s corners.' : 'Tap to add. Tap again to remove.';
         let shown = 0;
@@ -2043,9 +2056,9 @@
         $('pickerTabs').querySelectorAll('button').forEach(button => button.setAttribute('aria-selected', String(button.dataset.tab === tab)));
         if (tab === 'browse') { void showBrowse(); return; }
         ++browseSerial; searchController?.abort(); ++searchSequence;
-        albumSearchResults = []; activeArtist = null; releaseFilter = 'albums';
+        albumSearchResults = []; artistSearchResults = []; activeArtist = null; releaseFilter = 'albums';
         $('albumResults').classList.remove('artist-results'); $('albumResults').replaceChildren();
-        $('albumSearchStatus').textContent = 'Find an artist. Start with four albums that define your wall.';
+        $('albumSearchStatus').textContent = 'Search any album or artist. Start with four albums that define your wall.';
         if (!matchMedia('(max-width:600px)').matches) $('albumSearch').focus();
       }
       $('pickerTabs').addEventListener('click', event => { const button = event.target.closest('button[data-tab]'); if (button && pickerMain.dataset.tab !== button.dataset.tab) setPickerTab(button.dataset.tab); });
