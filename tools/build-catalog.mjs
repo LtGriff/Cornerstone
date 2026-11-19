@@ -30,7 +30,12 @@ async function polite(url, gap, headers = {}) {
   const elapsed = Date.now() - lastCall;
   if (elapsed < gap) await wait(gap - elapsed);
   lastCall = Date.now();
-  return fetch(url, { headers: { 'User-Agent': UA, ...headers }, redirect: 'follow' });
+  // network hiccups (timeouts, resets) are retried a few times, then treated as a failed request instead of crashing the run
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try { return await fetch(url, { headers: { 'User-Agent': UA, ...headers }, redirect: 'follow', signal: AbortSignal.timeout(30000) }); }
+    catch (error) { console.log(`network error (try ${attempt}): ${error?.cause?.code || error?.name || error}`); if (attempt < 4) await wait(15000 * attempt); }
+  }
+  return new Response('{}', { status: 599 });
 }
 
 const norm = s => String(s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '');
