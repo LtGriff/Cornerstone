@@ -39,6 +39,23 @@
   new MutationObserver(render).observe(shelf, { childList: true });
   render();
 
+  // gap hints: which decades the wall covers so far
+  const hint = document.createElement('div');
+  hint.innerHTML = '<div class="pp-years" id="ppYears"></div><p class="pp-gap" id="ppGap" hidden></p>';
+  aside.querySelector('.pp-hint').before(hint);
+  function gaps(albums) {
+    const decades = { '2000s': 0, '2010s': 0, '2020s': 0 };
+    (albums || []).forEach(album => { const y = parseInt(album.year, 10); if (y >= 2000) decades[`${Math.floor(y / 10) * 10}s`] = (decades[`${Math.floor(y / 10) * 10}s`] || 0) + 1; });
+    hint.querySelector('#ppYears').replaceChildren(...Object.entries(decades).map(([label, n]) => { const b = document.createElement('b'); b.dataset.n = n; b.textContent = `${label} · ${n}`; return b; }));
+    const empty = Object.entries(decades).filter(([, n]) => !n).map(([label]) => label);
+    const gap = hint.querySelector('#ppGap');
+    gap.hidden = !(albums || []).length || !empty.length;
+    gap.textContent = empty.length ? `Nothing from the ${empty.join(' or ')} yet.` : '';
+  }
+  gaps([]);
+  const studio = window.CornerstoneStudio;
+  if (studio?.draftChanged) { const original = studio.draftChanged; studio.draftChanged = function (albums, ...rest) { try { gaps(albums); } catch (_) {} return original.call(this, albums, ...rest); }; }
+
   // "/" opens search from anywhere on the page
   document.addEventListener('keydown', event => {
     if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
